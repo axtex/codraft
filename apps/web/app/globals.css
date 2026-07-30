@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-elevated: #f1f3f5;
+  --bg-card: #ffffff;
+  --fg: #111827;
+  --fg-muted: #6b7280;
+  --fg-subtle: #9ca3af;
+  --accent: #6366f1;
+  --accent-bright: #818cf8;
+  --accent-muted: rgba(99, 102, 241, 0.1);
+  --border: #e5e7eb;
+  --border-bright: #d1d5db;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --section-empty: #f9fafb;
+  --section-filled: #f0fdf4;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-border bg-transparent px-4 py-2 text-sm font-medium text-fg transition hover:bg-bg-surface disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-danger px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .card {
+    @apply rounded-lg border border-border bg-bg-card shadow-sm;
+  }
+
+  .section-card {
+    @apply rounded-lg border border-border bg-bg-card shadow-sm;
+    border-left-width: 4px;
+  }
+
+  .section-card--empty {
+    border-left-color: var(--fg-subtle);
+    background: var(--section-empty);
+  }
+
+  .section-card--in_progress {
+    border-left-color: var(--warning);
+    background: #ffffff;
+  }
+
+  .section-card--filled {
+    border-left-color: var(--success);
+    background: var(--section-filled);
+  }
+
+  .section-card--human_edited {
+    border-left-color: var(--accent);
+    background: #ffffff;
+  }
+}
+
+/* Scrollbars — thin and unobtrusive, matching the "document is the hero" brief */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
+}
