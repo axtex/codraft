@@ -32,6 +32,28 @@ interface RoomState {
 // hammer the DB, so we coalesce bursts and only persist once activity settles.
 const SAVE_DEBOUNCE_MS = 5000
 
+// TipTap Collaboration stores the doc in XmlFragment('default'), not Y.Text.
+// Walk that fragment so debounced saves don't wipe `content` with an empty string.
+function yXmlPlainText(node: Y.XmlFragment | Y.XmlElement): string {
+  const parts: string[] = []
+  node.forEach((child) => {
+    if (child instanceof Y.XmlText) {
+      parts.push(child.toString())
+    } else if (child instanceof Y.XmlElement) {
+      const inner = yXmlPlainText(child)
+      parts.push(inner)
+      if (child.nodeName === 'paragraph' || child.nodeName === 'heading' || child.nodeName === 'listItem') {
+        parts.push('\n')
+      }
+    }
+  })
+  return parts.join('').trimEnd()
+}
+
+function getSectionPlainText(ydoc: Y.Doc): string {
+  return yXmlPlainText(ydoc.getXmlFragment('default'))
+}
+
 class RoomManager {
   private rooms = new Map<string, RoomState>()
 
@@ -104,7 +126,7 @@ class RoomManager {
 
     const timeout = setTimeout(() => {
       room.saveTimeouts.delete(sectionId)
-      const content = ydoc.getText('content').toString()
+      const content = getSectionPlainText(ydoc)
       saveSectionState(sectionId, ydoc, content).catch((err) => {
         console.error(`[room-state] failed to save section ${sectionId}:`, err)
       })
@@ -124,7 +146,7 @@ class RoomManager {
       clearTimeout(timeout)
       const ydoc = room.sections.get(sectionId)
       if (ydoc) {
-        const content = ydoc.getText('content').toString()
+        const content = getSectionPlainText(ydoc)
         saveSectionState(sectionId, ydoc, content).catch((err) => {
           console.error(`[room-state] failed to flush section ${sectionId} on room cleanup:`, err)
         })

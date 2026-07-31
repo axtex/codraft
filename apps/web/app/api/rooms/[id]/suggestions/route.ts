@@ -28,7 +28,18 @@ export async function POST(
   const [section] = await prisma.$transaction([
     prisma.section.update({
       where: { id: suggestion.sectionId },
-      data: { content: suggestion.content, status: 'filled', updatedBy: 'claude' },
+      data: {
+        // Append extraction into existing body — never wipe the section.
+        content: (() => {
+          const base = (suggestion.section.content ?? '').trimEnd()
+          const addition = suggestion.content.trim()
+          if (!base) return addition
+          if (!addition) return base
+          return `${base}\n\n${addition}`
+        })(),
+        status: 'filled',
+        updatedBy: 'claude',
+      },
     }),
     prisma.extractionSuggestion.update({
       where: { id: suggestionId },

@@ -87,14 +87,17 @@ export default function MessageBubble({ message, currentUserId, onSectionClick }
   }
 
   if (message.type === 'EXTRACTION') {
+    // Lasting chat breadcrumb (e.g. "Added to Overview") — not the auto-dismiss
+    // extraction tooltip. Stays in history across reloads.
+    const sectionName = message.content.replace(/^Added to\s+/i, '').trim()
     return (
-      <div className="flex justify-center">
+      <div className="flex justify-center py-1">
         <button
           type="button"
-          onClick={() => onSectionClick?.(message.content)}
+          onClick={() => onSectionClick?.(sectionName || message.content)}
           className="bg-accent-muted text-accent text-xs rounded-full px-3 py-1 hover:opacity-80 transition-opacity"
         >
-          {message.content}
+          📝 {message.content}
         </button>
       </div>
     )

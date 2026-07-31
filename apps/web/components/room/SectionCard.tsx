@@ -4,12 +4,13 @@ import Collaboration from '@tiptap/extension-collaboration'
 import Placeholder from '@tiptap/extension-placeholder'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import type { SectionData, SectionStatus } from '@codraft/shared'
+import type { ExtractionSuggestion, SectionData, SectionStatus } from '@codraft/shared'
 import { formatDistanceToNow } from 'date-fns'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { useYjsSection } from '@/hooks/useYjsSection'
+import { markdownToHtml } from '@/lib/markdown'
 
 interface SectionCardProps {
   section: SectionData
@@ -18,6 +19,7 @@ interface SectionCardProps {
   currentUserId: string
   onAskClaude: (sectionName: string) => void
   initialYjsState?: number[]
+  pendingSuggestion?: ExtractionSuggestion | null
 }
 
 const STATUS_BADGE: Record<SectionStatus, { label: string; className: string }> = {
@@ -31,13 +33,18 @@ export default function SectionCard({
   section,
   roomId,
   socket,
-  currentUserId,
+  currentUserId: _currentUserId,
   onAskClaude,
   initialYjsState,
+  pendingSuggestion = null,
 }: SectionCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isResolving, setIsResolving] = useState(false)
   const { ydoc } = useYjsSection(socket, roomId, section.id, initialYjsState)
   const hasSeededContent = useRef(false)
+  // Tracks the last content applied from section props (seed or Claude fill),
+  // so we don't fight live collaborative edits that only live in Yjs.
+  const lastAppliedFromProps = useRef<string | null>(null)
 
   const editor = useEditor(
     {
@@ -60,9 +67,73 @@ export default function SectionCard({
     hasSeededContent.current = true
     const noPersistedState = !initialYjsState || initialYjsState.length === 0
     if (noPersistedState && section.content && editor.isEmpty) {
-      editor.commands.setContent(section.content)
+      lastAppliedFromProps.current = section.content
+      // Claude/AI init store markdown; TipTap needs HTML nodes.
+      editor.commands.setContent(markdownToHtml(section.content))
     }
   }, [editor, initialYjsState, section.content])
+
+  // When Claude (or accept-suggestion) updates section.content via socket,
+  // push it into TipTap. Server-side Y.Text writes never reach Collaboration's
+  // XmlFragment, so the editor must apply content from `section-updated`.
+  useEffect(() => {
+    if (!editor || !section.content) return
+    if (lastAppliedFromProps.current === section.content) return
+    // Skip until seed effect has had a chance to run for empty docs.
+    if (!hasSeededContent.current) return
+    if (editor.getText().trim() === section.content.trim()) {
+      lastAppliedFromProps.current = section.content
+      return
+    }
+    lastAppliedFromProps.current = section.content
+    editor.commands.setContent(markdownToHtml(section.content))
+  }, [editor, section.content, section.updatedAt])
+
+  // Expand so the pending highlight is visible.
+  useEffect(() => {
+    if (pendingSuggestion) setIsCollapsed(false)
+  }, [pendingSuggestion])
+
+  async function handleAcceptSuggestion() {
+    if (!pendingSuggestion || isResolving) return
+    const current = pendingSuggestion
+    setIsResolving(true)
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId: current.id }),
+      })
+      if (!res.ok) return
+      const data = (await res.json()) as { section: { content: string } }
+      // Socket broadcasts the appended body + clears pending for everyone.
+      socket?.emit(
+        'accept-suggestion',
+        roomId,
+        current.id,
+        current.sectionId,
+        data.section.content
+      )
+    } finally {
+      setIsResolving(false)
+    }
+  }
+
+  async function handleRejectSuggestion() {
+    if (!pendingSuggestion || isResolving) return
+    const current = pendingSuggestion
+    setIsResolving(true)
+    try {
+      await fetch(`/api/rooms/${roomId}/suggestions`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId: current.id }),
+      })
+      socket?.emit('reject-suggestion', roomId, current.id)
+    } finally {
+      setIsResolving(false)
+    }
+  }
 
   const badge = STATUS_BADGE[section.status]
   const showFooter = section.status === 'filled' || section.status === 'human_edited'
@@ -88,9 +159,36 @@ export default function SectionCard({
 
       {!isCollapsed && (
         <>
-          <div className="p-4 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_em]:italic [&_code]:font-mono [&_code]:text-xs [&_code]:bg-bg-elevated [&_code]:px-1 [&_code]:rounded text-sm text-fg">
+          <div className="p-4 pb-2 text-sm text-fg [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-0.5 [&_strong]:font-semibold [&_em]:italic [&_code]:rounded [&_code]:bg-bg-elevated [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs">
             <EditorContent editor={editor} />
           </div>
+
+          {pendingSuggestion && (
+            <div className="px-4 pb-2">
+              <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-accent-muted px-2 py-1 text-sm text-fg">
+                <span className="min-w-0 break-words text-accent">{pendingSuggestion.content}</span>
+                <button
+                  type="button"
+                  onClick={handleAcceptSuggestion}
+                  disabled={isResolving}
+                  className="shrink-0 rounded p-0.5 text-success hover:bg-success/10 disabled:opacity-50"
+                  aria-label="Accept suggestion"
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectSuggestion}
+                  disabled={isResolving}
+                  className="shrink-0 rounded p-0.5 text-fg-muted hover:bg-fg/5 hover:text-fg disabled:opacity-50"
+                  aria-label="Reject suggestion"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="px-4 pb-3">
             <button type="button" onClick={() => onAskClaude(section.name)} className="btn-ghost text-xs">
               ✨ Ask Claude to fill

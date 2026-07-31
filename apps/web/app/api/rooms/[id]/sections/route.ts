@@ -47,12 +47,13 @@ export async function POST(
   })
 
   const content = await generateSectionContent(room.name, name)
-  const filled = await prisma.section.update({
+  // Starter copy only — status stays `empty` until Claude fill / human edit.
+  const seeded = await prisma.section.update({
     where: { id: section.id },
-    data: { content, status: 'filled' },
+    data: { content },
   })
 
   // The caller (client) is responsible for emitting `add-section` over the
   // socket connection — this route only performs the DB write.
-  return NextResponse.json({ section: filled })
+  return NextResponse.json({ section: seeded })
 }

@@ -4,7 +4,7 @@ import type { CursorInfo, SectionData } from '@codraft/shared'
 import { prisma, getChatHistory } from './db-client'
 import { roomManager } from './room-state'
 import { publishSectionUpdate } from './redis-sync'
-import { handleMessage } from './ai-handler'
+import { handleMessage, handleFillSection } from './ai-handler'
 
 // This module registers its own `io.on('connection', ...)` listener rather
 // than exposing per-event handlers — index.ts just calls
@@ -126,6 +126,27 @@ export function registerSocketHandlers(io: Server): void {
       }
     )
 
+    // Section-card "Ask Claude to fill" — no user chat bubble; draft goes to the
+    // doc and chat only gets a one-line system notice.
+    socket.on(
+      'fill-section',
+      async (roomId: string, sectionName: string, _userId: string, _userName: string) => {
+        try {
+          const [chatHistory, sectionRows] = await Promise.all([
+            getChatHistory(roomId, 20),
+            prisma.section.findMany({ where: { roomId }, orderBy: { order: 'asc' } }),
+          ])
+          const sections = sectionRows.map(mapSection)
+
+          handleFillSection(io, roomId, sectionName, chatHistory, sections).catch((err) =>
+            console.error('[socket-handlers] handleFillSection rejected:', err)
+          )
+        } catch (err) {
+          console.error('[socket-handlers] fill-section failed:', err)
+        }
+      }
+    )
+
     socket.on('yjs-update', (roomId: string, sectionId: string, update: number[]) => {
       try {
         const updateBytes = new Uint8Array(update)
@@ -160,16 +181,11 @@ export function registerSocketHandlers(io: Server): void {
       'accept-suggestion',
       async (roomId: string, suggestionId: string, sectionId: string, content: string) => {
         try {
+          // `content` is the full appended section body from the accept API.
+          // TipTap picks it up via section-updated → client setContent.
           const updated = await prisma.section.update({
             where: { id: sectionId },
-            data: { content, status: 'filled' },
-          })
-
-          const ydoc = roomManager.getSectionDoc(roomId, sectionId)
-          const ytext = ydoc.getText('content')
-          ydoc.transact(() => {
-            ytext.delete(0, ytext.length)
-            ytext.insert(0, content)
+            data: { content, status: 'filled', updatedBy: 'claude' },
           })
 
           io.to(roomId).emit('section-updated', updated)

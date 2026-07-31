@@ -1,7 +1,7 @@
 'use client'
 
-import type { SectionData } from '@codraft/shared'
-import { useEffect, useMemo, useState } from 'react'
+import type { ExtractionSuggestion, SectionData } from '@codraft/shared'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import AddSectionModal from './AddSectionModal'
 import SectionCard from './SectionCard'
@@ -25,6 +25,9 @@ function SectionsPanel({
 }: SectionsPanelProps) {
   const [sections, setSections] = useState<SectionData[]>(initialSections)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  // One visible pending suggestion per section; extras wait in queue.
+  const [pendingBySection, setPendingBySection] = useState<Record<string, ExtractionSuggestion>>({})
+  const suggestionQueueRef = useRef<ExtractionSuggestion[]>([])
 
   useEffect(() => {
     setSections(initialSections)
@@ -41,12 +44,57 @@ function SectionsPanel({
       setSections((prev) => prev.map((s) => (s.id === section.id ? section : s)))
     }
 
+    const promoteNext = (occupied: Record<string, ExtractionSuggestion>) => {
+      const nextOccupied = { ...occupied }
+      const remaining: ExtractionSuggestion[] = []
+      for (const item of suggestionQueueRef.current) {
+        if (!nextOccupied[item.sectionId]) {
+          nextOccupied[item.sectionId] = item
+        } else {
+          remaining.push(item)
+        }
+      }
+      suggestionQueueRef.current = remaining
+      return nextOccupied
+    }
+
+    const handleSuggestion = (data: ExtractionSuggestion) => {
+      setPendingBySection((prev) => {
+        if (prev[data.sectionId]) {
+          suggestionQueueRef.current = [...suggestionQueueRef.current, data]
+          return prev
+        }
+        return { ...prev, [data.sectionId]: data }
+      })
+    }
+
+    const handleResolved = (data: { suggestionId: string }) => {
+      setPendingBySection((prev) => {
+        const next = { ...prev }
+        for (const [sectionId, suggestion] of Object.entries(next)) {
+          if (suggestion.id === data.suggestionId) {
+            delete next[sectionId]
+            break
+          }
+        }
+        // Drop the resolved id from the waiting queue too (reject/accept races).
+        suggestionQueueRef.current = suggestionQueueRef.current.filter(
+          (s) => s.id !== data.suggestionId
+        )
+        return promoteNext(next)
+      })
+    }
+
     socket.on('section-added', handleSectionAdded)
     socket.on('section-updated', handleSectionUpdated)
+    socket.on('extraction-suggestion', handleSuggestion)
+    socket.on('suggestion-resolved', handleResolved)
 
     return () => {
       socket.off('section-added', handleSectionAdded)
       socket.off('section-updated', handleSectionUpdated)
+      socket.off('extraction-suggestion', handleSuggestion)
+      socket.off('suggestion-resolved', handleResolved)
     }
   }, [socket])
 
@@ -77,6 +125,7 @@ function SectionsPanel({
             currentUserId={currentUserId}
             onAskClaude={onAskClaude}
             initialYjsState={yjsStateById.get(section.id)}
+            pendingSuggestion={pendingBySection[section.id] ?? null}
           />
         ))}
       </div>

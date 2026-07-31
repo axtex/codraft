@@ -63,11 +63,14 @@ export async function POST(req: NextRequest) {
     createdSections.map((section) => generateSectionContent(room.name, section.name))
   )
 
-  const filledSections = await Promise.all(
+  // Starter scaffolding helps the team begin, but it is not a completed
+  // section — keep status `empty` so "Filled ✓" only appears after an
+  // explicit Claude fill (or human edit path).
+  const seededSections = await Promise.all(
     createdSections.map((section, index) =>
       prisma.section.update({
         where: { id: section.id },
-        data: { content: contents[index], status: 'filled' },
+        data: { content: contents[index] },
       })
     )
   )
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     room,
     inviteUrl: generateInviteUrl(room.inviteToken),
-    sections: filledSections,
+    sections: seededSections,
   })
 }
 

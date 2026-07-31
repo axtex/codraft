@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useSocket } from '@/hooks/useSocket'
 import { ChatPanel } from '@/components/room/ChatPanel'
 import { SectionsPanel } from '@/components/room/SectionsPanel'
-import { ExtractionTooltip } from '@/components/room/ExtractionTooltip'
 import { ShareModal } from '@/components/room/ShareModal'
 import type { ChatMessage, RoomMemberInfo, SectionData, SectionStatus } from '@codraft/shared'
 
@@ -88,11 +87,10 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   }
 
   function askClaudeToFill(sectionName: string) {
-    const text = `Claude, please fill the ${sectionName} section based on our conversation`
+    // Dedicated fill event — keeps the chat clear of the prompt + draft dump.
     if (socket) {
-      socket.emit('send-message', room.id, text, currentUser.id, currentUser.name)
+      socket.emit('fill-section', room.id, sectionName, currentUser.id, currentUser.name)
     }
-    chatInputRef.current?.focus()
   }
 
   function startDrag() {
@@ -203,8 +201,6 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
           />
         </div>
       </div>
-
-      <ExtractionTooltip roomId={room.id} socket={socket} />
 
       <ShareModal
         isOpen={isShareOpen}
