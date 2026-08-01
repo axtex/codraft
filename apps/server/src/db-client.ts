@@ -110,3 +110,30 @@ function mapChatMessage(row: {
     createdAt: row.createdAt,
   }
 }
+
+/** Persist a section content snapshot; keep at most 20 per section. */
+export async function saveSnapshot(
+  sectionId: string,
+  content: string,
+  savedBy: string,
+  reason: string
+): Promise<void> {
+  if (!content?.trim()) return
+
+  await prisma.sectionSnapshot.create({
+    data: { sectionId, content, savedBy, reason },
+  })
+
+  const snapshots = await prisma.sectionSnapshot.findMany({
+    where: { sectionId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  })
+
+  if (snapshots.length > 20) {
+    const toDelete = snapshots.slice(20).map((s) => s.id)
+    await prisma.sectionSnapshot.deleteMany({
+      where: { id: { in: toDelete } },
+    })
+  }
+}

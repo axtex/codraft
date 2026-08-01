@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Server, Socket } from 'socket.io'
 import type { ChatMessage, SectionData } from '@codraft/shared'
-import { saveMessage, createSuggestion, prisma } from './db-client'
+import { saveMessage, createSuggestion, prisma, saveSnapshot } from './db-client'
+import { roomManager } from './room-state'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -13,9 +14,59 @@ interface Intent {
   sectionName?: string
 }
 
+interface MentionMember {
+  userId: string
+  userName: string
+}
+
+interface ParsedMentions {
+  mentionsClaude: boolean
+  mentionedSections: string[]
+  mentionedUserIds: string[]
+  cleanMessage: string
+}
+
+function parseMentions(
+  message: string,
+  sections: SectionData[],
+  members: MentionMember[]
+): ParsedMentions {
+  const lower = message.toLowerCase()
+
+  const mentionsClaude = lower.includes('@claude')
+
+  const mentionedSections = sections
+    .filter((s) => lower.includes(`@${s.name.toLowerCase()}`))
+    .map((s) => s.name)
+
+  const mentionedUserIds = members
+    .filter((m) => lower.includes(`@${m.userName.toLowerCase()}`))
+    .map((m) => m.userId)
+
+  // Keep @mentions in the text — they provide context for Claude.
+  return {
+    mentionsClaude,
+    mentionedSections,
+    mentionedUserIds,
+    cleanMessage: message,
+  }
+}
+
 function buildSectionContext(sections: SectionData[]): string {
   const lines = sections.map((s) => `[${s.name}]: ${s.content || 'empty'}`)
   return `=== SECTIONS ===\n${lines.join('\n')}`
+}
+
+function buildMentionedSectionContext(
+  mentionedSections: string[],
+  sections: SectionData[]
+): string {
+  if (mentionedSections.length === 0) return ''
+  const blocks = mentionedSections.map((name) => {
+    const section = sections.find((s) => s.name === name)
+    return `[${name}]: ${section?.content || 'empty'}`
+  })
+  return `⚠️ User mentioned these sections:\n${blocks.join('\n')}`
 }
 
 function buildChatHistoryText(chatHistory: ChatMessage[]): string {
@@ -172,6 +223,7 @@ async function writeAiContentToSection(
     where: { id: targetSection.id },
     data: { content, status: 'filled', updatedBy: 'claude' },
   })
+  await saveSnapshot(targetSection.id, content, 'claude', 'claude_fill')
   io.to(roomId).emit('section-updated', updated)
 }
 
@@ -223,6 +275,26 @@ async function notifySectionFilled(
   io.to(roomId).emit('new-message', savedMessage)
 }
 
+function notifyMentionedUsers(
+  io: Server,
+  roomId: string,
+  mentionedUserIds: string[],
+  mentionedBy: string,
+  message: string
+): void {
+  for (const userId of mentionedUserIds) {
+    const socketIds = roomManager.getSocketIdsForUser(roomId, userId)
+    for (const socketId of socketIds) {
+      io.to(socketId).emit('mentioned', {
+        roomId,
+        mentionedBy,
+        message: message.slice(0, 100),
+        timestamp: new Date(),
+      })
+    }
+  }
+}
+
 /** Button / explicit fill — writes the doc, posts a one-line chat notice (no draft dump). */
 export async function handleFillSection(
   io: Server,
@@ -266,10 +338,24 @@ export async function handleMessage(
   sections: SectionData[]
 ): Promise<void> {
   try {
+    const members = roomManager.getOnlineMembers(roomId)
+    const mentions = parseMentions(message, sections, members)
+
+    // Notify @mentioned users (exclude the sender).
+    const othersMentioned = mentions.mentionedUserIds.filter((id) => id !== userId)
+    if (othersMentioned.length > 0) {
+      notifyMentionedUsers(io, roomId, othersMentioned, userName, message)
+    }
+
     const sectionContext = buildSectionContext(sections)
+    const mentionedContext = buildMentionedSectionContext(mentions.mentionedSections, sections)
     const chatHistoryText = buildChatHistoryText(chatHistory)
 
-    const intent = await detectIntent(message, sections)
+    // @Claude always triggers a response — skip intent classification.
+    const intent: Intent = mentions.mentionsClaude
+      ? { type: 'CHAT' }
+      : await detectIntent(message, sections)
+
     const writingToSection =
       (intent.type === 'WRITE' || intent.type === 'BOTH') && intent.sectionName
         ? sections.find((s) => s.name.toLowerCase() === intent.sectionName?.toLowerCase())
@@ -294,7 +380,7 @@ export async function handleMessage(
 
 Current workspace sections and content:
 ${sectionContext}
-
+${mentionedContext ? `\n${mentionedContext}\n` : ''}
 Recent conversation:
 ${chatHistoryText}
 
@@ -302,6 +388,11 @@ Guidelines:
 - Be helpful and concise
 - Address the whole group naturally
 - Reference section content when relevant
+${
+  mentions.mentionsClaude
+    ? `- The user explicitly mentioned @Claude and wants your response.`
+    : ''
+}
 ${
   writingToSection
     ? `- A decision in this message should also update "${writingToSection.name}". Keep your chat reply short (under 80 words) — do not paste the full section draft into chat.`
@@ -314,7 +405,7 @@ ${
       model: MODEL,
       max_tokens: 500,
       system: mainSystem,
-      messages: [{ role: 'user', content: message }],
+      messages: [{ role: 'user', content: mentions.cleanMessage }],
     })
 
     stream.on('text', (chunk) => {

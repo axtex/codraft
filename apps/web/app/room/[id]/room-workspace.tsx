@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSocket } from '@/hooks/useSocket'
 import { ChatPanel } from '@/components/room/ChatPanel'
+import { ExportButton } from '@/components/room/ExportButton'
 import { SectionsPanel } from '@/components/room/SectionsPanel'
 import { ShareModal } from '@/components/room/ShareModal'
 import type { ChatMessage, RoomMemberInfo, SectionData, SectionStatus } from '@codraft/shared'
@@ -13,7 +14,7 @@ interface RoomWorkspaceProps {
     id: string
     name: string
     fullSlug: string
-    isPublic: boolean
+    linkSharingEnabled: boolean
     ownerId: string
     inviteToken: string
   }
@@ -32,7 +33,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   const [roomName, setRoomName] = useState(room.name)
   const [isEditingName, setIsEditingName] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
-  const [isPublic, setIsPublic] = useState(room.isPublic)
+  const [linkSharingEnabled, setLinkSharingEnabled] = useState(room.linkSharingEnabled)
   const [presence, setPresence] = useState<RoomMemberInfo[]>(members)
   const [panelSplit, setPanelSplit] = useState(35) // left panel width, %
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -77,12 +78,12 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
     })
   }
 
-  async function togglePublic(next: boolean) {
-    setIsPublic(next)
+  async function toggleLinkSharing(next: boolean) {
+    setLinkSharingEnabled(next)
     await fetch(`/api/rooms/${room.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isPublic: next }),
+      body: JSON.stringify({ linkSharingEnabled: next }),
     })
   }
 
@@ -161,9 +162,12 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
           </span>
         </div>
 
-        <button className="btn-primary" onClick={() => setIsShareOpen(true)}>
-          Share
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton roomId={room.id} roomName={roomName} />
+          <button className="btn-primary" onClick={() => setIsShareOpen(true)}>
+            Share
+          </button>
+        </div>
       </header>
 
       {/* Main area */}
@@ -206,10 +210,10 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
         inviteUrl={inviteUrl}
-        isPublic={isPublic}
+        linkSharingEnabled={linkSharingEnabled}
         isOwner={isOwner}
         members={presence.map((p) => ({ userId: p.userId, name: p.name, image: p.image, role: p.role }))}
-        onTogglePublic={togglePublic}
+        onToggleLinkSharing={toggleLinkSharing}
       />
     </div>
   )

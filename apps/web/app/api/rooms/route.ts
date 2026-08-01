@@ -19,7 +19,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const name: string | undefined = body.name
-  const isPublic: boolean = Boolean(body.isPublic)
+  // Default on — "anyone with link" matches Google Docs–style sharing.
+  const linkSharingEnabled: boolean =
+    typeof body.linkSharingEnabled === 'boolean' ? body.linkSharingEnabled : true
   if (!name || !name.trim()) {
     return NextResponse.json({ error: 'Room name is required' }, { status: 400 })
   }
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
       slug,
       fullSlug,
       template,
-      isPublic,
+      linkSharingEnabled,
       ownerId: session.user.id,
       members: {
         create: { userId: session.user.id, role: 'OWNER' },
@@ -110,7 +112,7 @@ export async function GET() {
       slug: room.slug,
       fullSlug: room.fullSlug,
       template: room.template,
-      isPublic: room.isPublic,
+      linkSharingEnabled: room.linkSharingEnabled,
       updatedAt: room.updatedAt,
       memberCount: room.members.length,
       sectionCount: room.sections.length,

@@ -7,7 +7,12 @@ import React from 'react'
 
 // Minimal markdown renderer: bold, italic, inline code, unordered lists, fenced code blocks.
 // Intentionally not a full parser — chat messages are short and don't need one.
-function renderMinimalMarkdown(text: string): React.ReactNode {
+function renderMinimalMarkdown(
+  text: string,
+  onSectionClick?: (sectionName: string) => void,
+  knownSections?: string[],
+  knownUsers?: string[]
+): React.ReactNode {
   const blocks = text.split(/```/)
 
   return blocks.map((block, blockIdx) => {
@@ -30,7 +35,7 @@ function renderMinimalMarkdown(text: string): React.ReactNode {
           if (/^[-*]\s+/.test(line)) {
             return (
               <li key={lineIdx} className="ml-4 list-disc">
-                {renderInline(line.replace(/^[-*]\s+/, ''))}
+                {renderInline(line.replace(/^[-*]\s+/, ''), onSectionClick, knownSections, knownUsers)}
               </li>
             )
           }
@@ -39,7 +44,7 @@ function renderMinimalMarkdown(text: string): React.ReactNode {
           }
           return (
             <span key={lineIdx}>
-              {renderInline(line)}
+              {renderInline(line, onSectionClick, knownSections, knownUsers)}
               {lineIdx < lines.length - 1 && <br />}
             </span>
           )
@@ -49,23 +54,135 @@ function renderMinimalMarkdown(text: string): React.ReactNode {
   })
 }
 
-function renderInline(text: string): React.ReactNode {
+function resolveMentionAt(
+  text: string,
+  atIndex: number,
+  knownSections?: string[],
+  knownUsers?: string[]
+): { label: string; kind: 'claude' | 'section' | 'user' | 'unknown'; matched: string } | null {
+  if (text[atIndex] !== '@') return null
+  const rest = text.slice(atIndex + 1)
+  if (!rest) return null
+
+  type MentionKind = 'claude' | 'section' | 'user'
+  const candidates: { label: string; kind: MentionKind }[] = [
+    { label: 'Claude', kind: 'claude' },
+    ...(knownSections ?? []).map((s): { label: string; kind: MentionKind } => ({
+      label: s,
+      kind: 'section',
+    })),
+    ...(knownUsers ?? []).map((u): { label: string; kind: MentionKind } => ({
+      label: u,
+      kind: 'user',
+    })),
+  ]
+  candidates.sort((a, b) => b.label.length - a.label.length)
+
+  for (const c of candidates) {
+    if (rest.toLowerCase().startsWith(c.label.toLowerCase())) {
+      const after = rest[c.label.length]
+      // Require end-of-token (whitespace / punctuation / EOS) so "@ClaudeX" isn't a hit.
+      if (after === undefined || /[\s.,!?;:)\]}]/.test(after)) {
+        return { label: c.label, kind: c.kind, matched: `@${c.label}` }
+      }
+    }
+  }
+
+  // Fallback: single-token @mention (no spaces).
+  const token = rest.match(/^[A-Za-z0-9_-]+/)
+  if (!token) return null
+  return { label: token[0], kind: 'unknown', matched: `@${token[0]}` }
+}
+
+function renderInline(
+  text: string,
+  onSectionClick?: (sectionName: string) => void,
+  knownSections?: string[],
+  knownUsers?: string[]
+): React.ReactNode {
+  const nodes: React.ReactNode[] = []
+  let i = 0
+  let key = 0
+
+  while (i < text.length) {
+    const at = text.indexOf('@', i)
+    if (at === -1) {
+      nodes.push(renderMarkdownInline(text.slice(i), key++))
+      break
+    }
+    if (at > i) {
+      nodes.push(renderMarkdownInline(text.slice(i, at), key++))
+    }
+    const resolved = resolveMentionAt(text, at, knownSections, knownUsers)
+    if (!resolved) {
+      nodes.push(renderMarkdownInline('@', key++))
+      i = at + 1
+      continue
+    }
+    nodes.push(renderMentionPill(resolved, key++, onSectionClick))
+    i = at + resolved.matched.length
+  }
+
+  return nodes
+}
+
+function renderMentionPill(
+  resolved: { label: string; kind: 'claude' | 'section' | 'user' | 'unknown' },
+  key: number,
+  onSectionClick?: (sectionName: string) => void
+): React.ReactNode {
+  if (resolved.kind === 'claude') {
+    return (
+      <span
+        key={key}
+        className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-xs font-medium text-indigo-600"
+      >
+        @Claude
+      </span>
+    )
+  }
+
+  if (resolved.kind === 'section') {
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => onSectionClick?.(resolved.label)}
+        className="inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-500/25"
+      >
+        @{resolved.label}
+      </button>
+    )
+  }
+
+  return (
+    <span
+      key={key}
+      className="inline-flex items-center rounded-full bg-blue-500/15 px-1.5 py-0.5 text-xs font-medium text-blue-600"
+    >
+      @{resolved.label}
+    </span>
+  )
+}
+
+function renderMarkdownInline(text: string, keyOffset: number): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g)
   return parts.map((part, idx) => {
+    const key = `${keyOffset}-${idx}`
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>
+      return <strong key={key}>{part.slice(2, -2)}</strong>
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code key={idx} className="font-mono text-xs bg-bg-elevated px-1 rounded">
+        <code key={key} className="font-mono text-xs bg-bg-elevated px-1 rounded">
           {part.slice(1, -1)}
         </code>
       )
     }
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-      return <em key={idx}>{part.slice(1, -1)}</em>
+      return <em key={key}>{part.slice(1, -1)}</em>
     }
-    return <React.Fragment key={idx}>{part}</React.Fragment>
+    return <React.Fragment key={key}>{part}</React.Fragment>
   })
 }
 
@@ -73,9 +190,17 @@ interface MessageBubbleProps {
   message: ChatMessage
   currentUserId: string
   onSectionClick?: (sectionName: string) => void
+  knownSections?: string[]
+  knownUsers?: string[]
 }
 
-export default function MessageBubble({ message, currentUserId, onSectionClick }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  currentUserId,
+  onSectionClick,
+  knownSections,
+  knownUsers,
+}: MessageBubbleProps) {
   const relativeTime = formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
 
   if (message.type === 'SYSTEM') {
@@ -113,7 +238,7 @@ export default function MessageBubble({ message, currentUserId, onSectionClick }
             <span className="text-xs text-fg-subtle">{relativeTime}</span>
           </div>
           <div className="bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-fg">
-            {renderMinimalMarkdown(message.content)}
+            {renderMinimalMarkdown(message.content, onSectionClick, knownSections, knownUsers)}
           </div>
         </div>
       </div>
@@ -146,7 +271,7 @@ export default function MessageBubble({ message, currentUserId, onSectionClick }
             isOwn ? 'bg-accent-muted' : 'bg-bg-surface'
           }`}
         >
-          {renderMinimalMarkdown(message.content)}
+          {renderMinimalMarkdown(message.content, onSectionClick, knownSections, knownUsers)}
         </div>
       </div>
     </div>

@@ -25,6 +25,11 @@ interface MentionOption {
   hint: string // small descriptor shown in dropdown
 }
 
+interface MentionToast {
+  id: number
+  name: string
+}
+
 const NEAR_BOTTOM_THRESHOLD = 80
 
 function ChatPanel({
@@ -45,12 +50,15 @@ function ChatPanel({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
   const [isSending, setIsSending] = useState(false)
+  const [mentionToasts, setMentionToasts] = useState<MentionToast[]>([])
+  const [hasUnreadMention, setHasUnreadMention] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const ownTextareaRef = useRef<HTMLTextAreaElement>(null)
   const textareaRef = externalInputRef ?? ownTextareaRef
   const isNearBottomRef = useRef(true)
+  const toastIdRef = useRef(0)
 
   useEffect(() => {
     setMessages(initialMessages)
@@ -58,9 +66,13 @@ function ChatPanel({
 
   const onlineCount = presence.filter((p) => p.isOnline).length
 
+  const knownSections = useMemo(() => sections.map((s) => s.name), [sections])
+  const knownUsers = useMemo(() => presence.map((p) => p.name), [presence])
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     setShowNewMessagesPill(false)
+    setHasUnreadMention(false)
   }
 
   const checkNearBottom = () => {
@@ -71,7 +83,16 @@ function ChatPanel({
 
   const handleScroll = () => {
     isNearBottomRef.current = checkNearBottom()
-    if (isNearBottomRef.current) setShowNewMessagesPill(false)
+    if (isNearBottomRef.current) {
+      setShowNewMessagesPill(false)
+      setHasUnreadMention(false)
+    }
+  }
+
+  const scrollToSection = (sectionName: string) => {
+    window.dispatchEvent(
+      new CustomEvent('codraft:scroll-to-section', { detail: { sectionName } })
+    )
   }
 
   useEffect(() => {
@@ -95,12 +116,23 @@ function ChatPanel({
       setStreamingText((prev) => prev + data.chunk)
     }
 
+    const handleMentioned = (data: { mentionedBy: string }) => {
+      const id = ++toastIdRef.current
+      setMentionToasts((prev) => [...prev, { id, name: data.mentionedBy }])
+      if (!isNearBottomRef.current) setHasUnreadMention(true)
+      setTimeout(() => {
+        setMentionToasts((prev) => prev.filter((t) => t.id !== id))
+      }, 4000)
+    }
+
     socket.on('new-message', handleNewMessage)
     socket.on('ai-response-chunk', handleChunk)
+    socket.on('mentioned', handleMentioned)
 
     return () => {
       socket.off('new-message', handleNewMessage)
       socket.off('ai-response-chunk', handleChunk)
+      socket.off('mentioned', handleMentioned)
     }
   }, [socket])
 
@@ -211,9 +243,14 @@ function ChatPanel({
   const canSend = inputValue.trim().length > 0 && isConnected && !isSending
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       <div className="h-10 border-b border-border flex items-center justify-between px-4 shrink-0">
-        <span className="text-sm font-medium text-fg">Chat</span>
+        <span className="flex items-center gap-1.5 text-sm font-medium text-fg">
+          Chat
+          {hasUnreadMention && (
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Unread mention" />
+          )}
+        </span>
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-success" />
           <span className="text-xs text-fg-muted">{onlineCount} online</span>
@@ -226,7 +263,14 @@ function ChatPanel({
         className="flex-1 overflow-y-auto p-4 space-y-3 relative"
       >
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} currentUserId={currentUserId} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            currentUserId={currentUserId}
+            onSectionClick={scrollToSection}
+            knownSections={knownSections}
+            knownUsers={knownUsers}
+          />
         ))}
 
         {streamingText !== null && streamingText !== '' && (
@@ -295,6 +339,18 @@ function ChatPanel({
         <p className="text-xs text-fg-subtle mt-1.5">
           Try: &quot;Claude, add our hotel budget to the doc&quot;
         </p>
+      </div>
+
+      {/* Mention toasts — bottom-right of the chat panel */}
+      <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col gap-2">
+        {mentionToasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-fg shadow-md"
+          >
+            💬 {toast.name} mentioned you
+          </div>
+        ))}
       </div>
     </div>
   )

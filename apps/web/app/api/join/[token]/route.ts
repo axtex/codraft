@@ -20,6 +20,15 @@ export async function GET(
     where: { roomId_userId: { roomId: room.id, userId: session.user.id } },
   })
 
+  // Invite-only rooms reject new joins via link; existing members can still
+  // use the link to re-enter.
+  if (!existing && !room.linkSharingEnabled) {
+    return NextResponse.json(
+      { error: 'This room is invite only — ask the owner to add you' },
+      { status: 403 }
+    )
+  }
+
   // Never downgrade an existing OWNER/EDITOR to a plain join — only add a
   // membership row when the user isn't already a member.
   if (!existing) {

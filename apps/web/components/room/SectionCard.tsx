@@ -6,11 +6,12 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import type { ExtractionSuggestion, SectionData, SectionStatus } from '@codraft/shared'
 import { formatDistanceToNow } from 'date-fns'
-import { Check, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, History, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { useYjsSection } from '@/hooks/useYjsSection'
 import { markdownToHtml } from '@/lib/markdown'
+import { SectionHistory } from './SectionHistory'
 
 interface SectionCardProps {
   section: SectionData
@@ -40,6 +41,7 @@ export default function SectionCard({
 }: SectionCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isResolving, setIsResolving] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const { ydoc } = useYjsSection(socket, roomId, section.id, initialYjsState)
   const hasSeededContent = useRef(false)
   // Tracks the last content applied from section props (seed or Claude fill),
@@ -139,10 +141,23 @@ export default function SectionCard({
   const showFooter = section.status === 'filled' || section.status === 'human_edited'
 
   return (
-    <div className={`section-card section-card--${section.status}`}>
+    <div
+      id={`section-${section.id}`}
+      data-section-name={section.name}
+      className={`section-card section-card--${section.status} group`}
+    >
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <span className="text-sm font-medium text-fg">{section.name}</span>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            className="text-fg-subtle opacity-0 transition-opacity hover:text-fg group-hover:opacity-100 focus:opacity-100"
+            aria-label="Section history"
+            title="History"
+          >
+            <History className="h-4 w-4" />
+          </button>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>
             {badge.label}
           </span>
@@ -203,6 +218,14 @@ export default function SectionCard({
           {formatDistanceToNow(new Date(section.updatedAt), { addSuffix: true })}
         </div>
       )}
+
+      <SectionHistory
+        roomId={roomId}
+        sectionId={section.id}
+        sectionName={section.name}
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
     </div>
   )
 }

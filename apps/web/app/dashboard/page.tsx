@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     name: room.name,
     fullSlug: room.fullSlug,
     template: room.template,
-    isPublic: room.isPublic,
+    linkSharingEnabled: room.linkSharingEnabled,
     updatedAt: room.updatedAt.toISOString(),
     members: room.members.map((m) => ({
       userId: m.userId,

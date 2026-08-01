@@ -23,7 +23,7 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
   const [name, setName] = useState('')
   const [template, setTemplate] = useState<RoomTemplate | null>(null)
   const [templateTouched, setTemplateTouched] = useState(false)
-  const [isPublic, setIsPublic] = useState(false)
+  const [linkSharingEnabled, setLinkSharingEnabled] = useState(true)
   const [progress, setProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,7 +37,7 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
     setName('')
     setTemplate(null)
     setTemplateTouched(false)
-    setIsPublic(false)
+    setLinkSharingEnabled(true)
     setProgress(null)
     setError(null)
   }
@@ -54,7 +54,7 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, template: effectiveTemplate, isPublic }),
+        body: JSON.stringify({ name, template: effectiveTemplate, linkSharingEnabled }),
       })
       setProgress('Generating sections...')
       if (!res.ok) {
@@ -141,23 +141,23 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
             <div className="mt-4 space-y-2">
               <button
                 type="button"
-                onClick={() => setIsPublic(false)}
+                onClick={() => setLinkSharingEnabled(true)}
                 className={`w-full rounded-md border p-3 text-left text-sm transition ${
-                  !isPublic ? 'border-accent bg-accent-muted' : 'border-border'
+                  linkSharingEnabled ? 'border-accent bg-accent-muted' : 'border-border'
                 }`}
               >
-                <div className="font-medium text-fg">Private</div>
-                <div className="text-xs text-fg-subtle">Only people with the invite link</div>
+                <div className="font-medium text-fg">🔗 Anyone with link</div>
+                <div className="text-xs text-fg-subtle">Anyone with the invite link can join</div>
               </button>
               <button
                 type="button"
-                onClick={() => setIsPublic(true)}
+                onClick={() => setLinkSharingEnabled(false)}
                 className={`w-full rounded-md border p-3 text-left text-sm transition ${
-                  isPublic ? 'border-accent bg-accent-muted' : 'border-border'
+                  !linkSharingEnabled ? 'border-accent bg-accent-muted' : 'border-border'
                 }`}
               >
-                <div className="font-medium text-fg">Public</div>
-                <div className="text-xs text-fg-subtle">Anyone can find and join</div>
+                <div className="font-medium text-fg">🔒 Invite only</div>
+                <div className="text-xs text-fg-subtle">You add members manually</div>
               </button>
             </div>
 

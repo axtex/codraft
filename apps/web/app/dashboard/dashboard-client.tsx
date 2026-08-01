@@ -12,7 +12,7 @@ interface RoomSummary {
   name: string
   fullSlug: string
   template: string
-  isPublic: boolean
+  linkSharingEnabled: boolean
   updatedAt: string
   members: { userId: string; name: string; image?: string }[]
   sectionCount: number
@@ -66,12 +66,12 @@ export function DashboardClient({
                   </div>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      room.isPublic
+                      room.linkSharingEnabled
                         ? 'bg-success/10 text-success'
                         : 'bg-bg-elevated text-fg-subtle'
                     }`}
                   >
-                    {room.isPublic ? 'Public' : 'Private'}
+                    {room.linkSharingEnabled ? 'Anyone with link' : 'Invite only'}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-fg-subtle">{room.fullSlug}</p>

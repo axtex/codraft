@@ -66,7 +66,7 @@ model Room {
   slug        String
   fullSlug    String   @unique
   template    String   @default("custom")
-  isPublic    Boolean  @default(false)
+  linkSharingEnabled Boolean @default(true)
   inviteToken String   @unique @default(cuid())
   ownerId     String
   createdAt   DateTime @default(now())
@@ -106,6 +106,19 @@ model Section {
 
   room        Room                    @relation(fields: [roomId], references: [id], onDelete: Cascade)
   suggestions ExtractionSuggestion[]
+  snapshots   SectionSnapshot[]
+}
+
+model SectionSnapshot {
+  id        String   @id @default(cuid())
+  sectionId String
+  content   String   @db.Text
+  savedBy   String
+  // userId or 'claude' or 'extraction'
+  reason    String
+  // 'user_edit' | 'claude_fill' | 'extraction_accepted' | 'revert'
+  createdAt DateTime @default(now())
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 }
 
 model ChatMessage {

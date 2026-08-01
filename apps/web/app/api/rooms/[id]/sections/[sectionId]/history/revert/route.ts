@@ -3,7 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { saveSnapshot } from '@/lib/section-history'
 
-export async function PATCH(
+export async function POST(
   req: NextRequest,
   { params }: { params: { id: string; sectionId: string } }
 ) {
@@ -20,21 +20,35 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const content: string | undefined = body.content
-  if (typeof content !== 'string') {
-    return NextResponse.json({ error: 'content is required' }, { status: 400 })
+  const snapshotId: string | undefined = body.snapshotId
+  if (!snapshotId) {
+    return NextResponse.json({ error: 'snapshotId is required' }, { status: 400 })
   }
 
-  const section = await prisma.section.update({
+  const snapshot = await prisma.sectionSnapshot.findFirst({
+    where: { id: snapshotId, sectionId: params.sectionId },
+  })
+  if (!snapshot) {
+    return NextResponse.json({ error: 'Snapshot not found' }, { status: 404 })
+  }
+
+  const section = await prisma.section.findFirst({
+    where: { id: params.sectionId, roomId: params.id },
+  })
+  if (!section) {
+    return NextResponse.json({ error: 'Section not found' }, { status: 404 })
+  }
+
+  const updated = await prisma.section.update({
     where: { id: params.sectionId },
     data: {
-      content,
+      content: snapshot.content,
       status: 'human_edited',
       updatedBy: session.user.id,
     },
   })
 
-  await saveSnapshot(params.sectionId, content, session.user.id, 'user_edit')
+  await saveSnapshot(params.sectionId, snapshot.content, session.user.id, 'revert')
 
-  return NextResponse.json({ section })
+  return NextResponse.json({ section: updated })
 }

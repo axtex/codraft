@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
+import { saveSnapshot } from '@/lib/section-history'
 
 export async function POST(
   req: NextRequest,
@@ -46,6 +47,13 @@ export async function POST(
       data: { status: 'accepted' },
     }),
   ])
+
+  await saveSnapshot(
+    suggestion.sectionId,
+    section.content ?? '',
+    'extraction',
+    'extraction_accepted'
+  )
 
   // Broadcasting `section-updated` over the socket connection is the
   // caller's responsibility — this route only performs the DB write.

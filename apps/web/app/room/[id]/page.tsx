@@ -21,7 +21,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
   if (!room) notFound()
 
   const isMember = room.members.some((m) => m.userId === session.user.id)
-  if (!room.isPublic && !isMember) notFound()
+  if (!isMember) notFound()
 
   return (
     <RoomWorkspace
@@ -29,7 +29,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
         id: room.id,
         name: room.name,
         fullSlug: room.fullSlug,
-        isPublic: room.isPublic,
+        linkSharingEnabled: room.linkSharingEnabled,
         ownerId: room.ownerId,
         inviteToken: room.inviteToken,
       }}

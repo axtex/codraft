@@ -109,6 +109,28 @@ class RoomManager {
     }))
   }
 
+  /** Socket IDs for an online user in a room (multi-tab aware). */
+  getSocketIdsForUser(roomId: string, userId: string): string[] {
+    const room = this.rooms.get(roomId)
+    if (!room) return []
+    return Array.from(room.clients.values())
+      .filter((c) => c.userId === userId)
+      .map((c) => c.socketId)
+  }
+
+  getOnlineMembers(roomId: string): { userId: string; userName: string }[] {
+    const room = this.rooms.get(roomId)
+    if (!room) return []
+    const seen = new Set<string>()
+    const members: { userId: string; userName: string }[] = []
+    for (const c of room.clients.values()) {
+      if (seen.has(c.userId)) continue
+      seen.add(c.userId)
+      members.push({ userId: c.userId, userName: c.userName })
+    }
+    return members
+  }
+
   getSectionDoc(roomId: string, sectionId: string): Y.Doc {
     const room = this.getOrCreate(roomId)
     let doc = room.sections.get(sectionId)

@@ -24,7 +24,7 @@ export async function GET(
     ? room.members.some((m) => m.userId === session.user.id)
     : false
 
-  if (!room.isPublic && !isMember) {
+  if (!isMember) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -49,9 +49,9 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const data: { name?: string; isPublic?: boolean } = {}
+  const data: { name?: string; linkSharingEnabled?: boolean } = {}
   if (typeof body.name === 'string' && body.name.trim()) data.name = body.name
-  if (typeof body.isPublic === 'boolean') data.isPublic = body.isPublic
+  if (typeof body.linkSharingEnabled === 'boolean') data.linkSharingEnabled = body.linkSharingEnabled
 
   const updated = await prisma.room.update({ where: { id: params.id }, data })
   return NextResponse.json({ room: updated })

@@ -14,20 +14,20 @@ interface ShareModalProps {
   isOpen: boolean
   onClose: () => void
   inviteUrl: string
-  isPublic: boolean
+  linkSharingEnabled: boolean
   isOwner: boolean
   members: Member[]
-  onTogglePublic: (isPublic: boolean) => void
+  onToggleLinkSharing: (linkSharingEnabled: boolean) => void
 }
 
 export function ShareModal({
   isOpen,
   onClose,
   inviteUrl,
-  isPublic,
+  linkSharingEnabled,
   isOwner,
   members,
-  onTogglePublic,
+  onToggleLinkSharing,
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false)
 
@@ -57,29 +57,39 @@ export function ShareModal({
             </button>
           </div>
           <p className="mt-1 text-xs text-fg-subtle">
-            Anyone with this link can join as Editor
+            {linkSharingEnabled
+              ? 'Anyone with this link can join as Editor'
+              : 'Link sharing is off — add members manually'}
           </p>
         </div>
 
         {isOwner && (
           <div className="mt-5">
             <label className="text-xs font-medium text-fg-muted">Visibility</label>
-            <div className="mt-1 flex gap-2">
+            <div className="mt-2 space-y-2">
               <button
-                className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition ${
-                  !isPublic ? 'border-accent bg-accent-muted text-accent' : 'border-border text-fg-muted'
+                type="button"
+                className={`w-full rounded-md border p-3 text-left text-sm transition ${
+                  linkSharingEnabled
+                    ? 'border-accent bg-accent-muted'
+                    : 'border-border text-fg-muted'
                 }`}
-                onClick={() => onTogglePublic(false)}
+                onClick={() => onToggleLinkSharing(true)}
               >
-                Private
+                <div className="font-medium text-fg">🔗 Anyone with link</div>
+                <div className="text-xs text-fg-subtle">Anyone with the invite link can join</div>
               </button>
               <button
-                className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition ${
-                  isPublic ? 'border-accent bg-accent-muted text-accent' : 'border-border text-fg-muted'
+                type="button"
+                className={`w-full rounded-md border p-3 text-left text-sm transition ${
+                  !linkSharingEnabled
+                    ? 'border-accent bg-accent-muted'
+                    : 'border-border text-fg-muted'
                 }`}
-                onClick={() => onTogglePublic(true)}
+                onClick={() => onToggleLinkSharing(false)}
               >
-                Public
+                <div className="font-medium text-fg">🔒 Invite only</div>
+                <div className="text-xs text-fg-subtle">You add members manually</div>
               </button>
             </div>
           </div>

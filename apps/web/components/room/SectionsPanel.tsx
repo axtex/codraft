@@ -33,6 +33,20 @@ function SectionsPanel({
     setSections(initialSections)
   }, [initialSections])
 
+  // Scroll to a section card when chat mention pills fire the custom event.
+  useEffect(() => {
+    function onScrollToSection(e: Event) {
+      const detail = (e as CustomEvent<{ sectionName: string }>).detail
+      if (!detail?.sectionName) return
+      const el = document.querySelector(
+        `[data-section-name="${CSS.escape(detail.sectionName)}"]`
+      )
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    window.addEventListener('codraft:scroll-to-section', onScrollToSection)
+    return () => window.removeEventListener('codraft:scroll-to-section', onScrollToSection)
+  }, [])
+
   useEffect(() => {
     if (!socket) return
 
