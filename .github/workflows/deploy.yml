@@ -3,7 +3,12 @@ name: Deploy to Railway
 on:
   push:
     branches: [main]
-    paths: ['apps/server/**']
+    paths:
+      - 'apps/server/**'
+      - 'packages/shared/**'
+      - 'package-lock.json'
+      - 'package.json'
+      - 'railway.json'
 
 jobs:
   deploy:
@@ -13,7 +18,8 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy to Railway
+        # Deploy from monorepo root so @codraft/shared is in the build context
+        # (Root Directory on the Railway service must be empty / "/").
         run: railway up --service codraft-server
-        working-directory: apps/server
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

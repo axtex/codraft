@@ -1,0 +1,10 @@
+# Install only the server workspace (+ @codraft/shared) from the monorepo root.
+# Railway Root Directory must be empty / "/" so packages/shared is in the build context.
+[phases.install]
+cmds = ["npm install --include=dev --workspace=@codraft/server --include-workspace-root"]
+
+[phases.build]
+cmds = ["npm run build --workspace=@codraft/server"]
+
+[start]
+cmd = "npm run start --workspace=@codraft/server"
