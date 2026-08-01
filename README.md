@@ -51,5 +51,5 @@ A real-time collaborative workspace where your team and Claude turn conversation
 ## Deployment
 
 - **Frontend** (`apps/web`) → Vercel
-- **WebSocket server** (`apps/server`) → Railway, see root `railway.json` and `apps/server/Procfile`. Deploy from the **monorepo root** (Root Directory empty/`/`) so `@codraft/shared` resolves via workspaces — do not set Root Directory to `apps/server`. `.github/workflows/deploy.yml` auto-deploys on push to `main` when server/shared change (requires a `RAILWAY_TOKEN` repo secret).
+- **WebSocket server** (`apps/server`) → Railway, see `apps/server/railway.json` and `apps/server/Procfile`. Root Directory can be `apps/server`; `@codraft/shared` is vendored at `apps/server/vendor/shared` (sync from `packages/shared` via `npm run sync:shared` in the server package). `.github/workflows/deploy.yml` auto-deploys on push to `main` when server/shared change (requires a `RAILWAY_TOKEN` repo secret).
 - **Database** → Railway PostgreSQL

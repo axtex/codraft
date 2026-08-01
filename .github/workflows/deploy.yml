@@ -6,20 +6,18 @@ on:
     paths:
       - 'apps/server/**'
       - 'packages/shared/**'
-      - 'package-lock.json'
-      - 'package.json'
-      - 'railway.json'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Sync shared types into server vendor
+        run: node apps/server/scripts/sync-shared.js
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy to Railway
-        # Deploy from monorepo root so @codraft/shared is in the build context
-        # (Root Directory on the Railway service must be empty / "/").
         run: railway up --service codraft-server
+        working-directory: apps/server
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

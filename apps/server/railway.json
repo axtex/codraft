@@ -2,16 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm install --include=dev --workspace=@codraft/server --include-workspace-root && npm run build --workspace=@codraft/server",
-    "watchPatterns": [
-      "apps/server/**",
-      "packages/shared/**",
-      "package-lock.json",
-      "package.json"
-    ]
+    "buildCommand": "npm install --include=dev && npm run build"
   },
   "deploy": {
-    "startCommand": "npm run start --workspace=@codraft/server",
+    "startCommand": "node dist/index.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
