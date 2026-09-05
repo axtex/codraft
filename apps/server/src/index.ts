@@ -15,14 +15,44 @@ import { prisma } from './db-client'
 
 const PORT = process.env.PORT || 3001
 
-// Localhost for dev + FRONTEND_URL for production (Vercel).
-const corsOrigins = [
-  'http://localhost:3000',
-  process.env.FRONTEND_URL || 'https://codraft-slate.vercel.app',
-]
+function stripTrailingSlash(origin: string): string {
+  return origin.replace(/\/$/, '')
+}
+
+// FRONTEND_URL can be a single origin or a comma-separated list. Always
+// include known production hosts so a stale dashboard value cannot lock
+// the new Vercel / custom domain out of CORS.
+const corsOrigins = new Set(
+  [
+    'http://localhost:3000',
+    'https://codraft-slate.vercel.app',
+    'https://codraft.app',
+    'https://www.codraft.app',
+    ...(process.env.FRONTEND_URL ?? '').split(','),
+  ]
+    .map((s) => stripTrailingSlash(s.trim()))
+    .filter(Boolean)
+)
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true
+  const normalized = stripTrailingSlash(origin)
+  if (corsOrigins.has(normalized)) return true
+  // Vercel preview deployments for this project.
+  if (/^https:\/\/codraft-slate[\w-]*\.vercel\.app$/.test(normalized)) return true
+  return false
+}
+
+const corsOptions = {
+  origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    callback(null, isAllowedOrigin(origin))
+  },
+  credentials: true,
+}
 
 const app = express()
-app.use(cors({ origin: corsOrigins, credentials: true }))
+app.set('trust proxy', 1)
+app.use(cors(corsOptions))
 app.use(express.json())
 
 app.get('/health', (_req, res) => {
@@ -35,7 +65,10 @@ app.get('/health', (_req, res) => {
 
 const server = createServer(app)
 const io = new Server(server, {
-  cors: { origin: corsOrigins, credentials: true },
+  cors: corsOptions,
+  transports: ['polling', 'websocket'],
+  pingInterval: 25000,
+  pingTimeout: 20000,
 })
 
 app.post('/internal/section-update', async (req, res) => {
@@ -72,4 +105,9 @@ registerSocketHandlers(io)
 // Bind 0.0.0.0 so Railway (and other container hosts) can reach the process.
 server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`codraft WebSocket server listening on 0.0.0.0:${PORT}`)
+})
+
+server.on('error', (err) => {
+  console.error('[server] listen failed:', err)
+  process.exit(1)
 })

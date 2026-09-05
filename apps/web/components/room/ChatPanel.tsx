@@ -11,6 +11,8 @@ interface ChatPanelProps {
   sections: SectionData[]
   socket: Socket | null
   isConnected: boolean
+  isReconnecting?: boolean
+  onReconnect?: () => void
   currentUserId: string
   currentUserName: string
   initialMessages: ChatMessage[]
@@ -37,6 +39,8 @@ function ChatPanel({
   sections,
   socket,
   isConnected,
+  isReconnecting = false,
+  onReconnect,
   currentUserId,
   currentUserName,
   initialMessages,
@@ -252,8 +256,18 @@ function ChatPanel({
           )}
         </span>
         <div className="flex items-center gap-1.5">
-          <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-fg-subtle'}`} />
-          <span className="text-xs text-fg-muted">{onlineCount} online</span>
+          <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-warning'}`} />
+          {isConnected ? (
+            <span className="text-xs text-fg-muted">{onlineCount} online</span>
+          ) : (
+            <button
+              type="button"
+              onClick={onReconnect}
+              className="text-xs text-fg-muted hover:text-accent hover:underline"
+            >
+              {isReconnecting ? 'Reconnecting…' : 'Not connected — try reconnecting'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -288,7 +302,7 @@ function ChatPanel({
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute left-1/2 -translate-x-1/2 bottom-24 bg-accent text-white text-xs px-3 py-1.5 rounded-full shadow-md hover:opacity-90"
+          className="absolute left-1/2 -translate-x-1/2 bottom-24 bg-accent text-white text-xs px-3 py-1.5 rounded-md shadow-md hover:opacity-90"
         >
           ↓ New messages
         </button>
@@ -322,7 +336,11 @@ function ChatPanel({
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Message your team and Claude..."
+            placeholder={
+              isConnected
+                ? 'Message your team and Claude...'
+                : 'Not connected — try reconnecting'
+            }
             rows={1}
             className="chat-composer flex-1 resize-none bg-bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent"
           />

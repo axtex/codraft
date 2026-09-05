@@ -31,7 +31,12 @@ interface RoomWorkspaceProps {
 }
 
 export function RoomWorkspace({ room, members, sections, messages, currentUser }: RoomWorkspaceProps) {
-  const { socket, isConnected } = useSocket(room.id, currentUser.id, currentUser.name, currentUser.image)
+  const { socket, isConnected, isReconnecting, reconnect } = useSocket(
+    room.id,
+    currentUser.id,
+    currentUser.name,
+    currentUser.image
+  )
   const [roomName, setRoomName] = useState(room.name)
   const [savedName, setSavedName] = useState(room.name)
   const [isEditingName, setIsEditingName] = useState(false)
@@ -117,7 +122,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
 
   function askClaudeToFill(sectionName: string) {
     if (!socket || !isConnected) {
-      showToast('Not connected — try refreshing')
+      showToast('Not connected — try reconnecting')
       return
     }
     socket.emit('fill-section', room.id, sectionName, currentUser.id, currentUser.name)
@@ -186,8 +191,8 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
             </div>
           ))}
           <span className="ml-2 flex items-center gap-1 text-xs text-fg-muted">
-            <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-success' : 'bg-fg-subtle'}`} />
-            {onlineCount} online
+            <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-success' : 'bg-warning'}`} />
+            {isConnected ? `${onlineCount} online` : isReconnecting ? 'Reconnecting…' : 'Offline'}
           </span>
         </div>
 
@@ -200,6 +205,20 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
         </div>
       </header>
 
+      {!isConnected && (
+        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-border bg-bg-surface px-3 py-1.5 text-xs text-fg-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+          {isReconnecting ? 'Reconnecting…' : 'Not connected'}
+          <button
+            type="button"
+            onClick={reconnect}
+            className="font-medium text-accent hover:underline"
+          >
+            Try reconnecting
+          </button>
+        </div>
+      )}
+
       {/* Main area */}
       <div ref={containerRef} className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <div
@@ -211,6 +230,8 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
             sections={typedSections}
             socket={socket}
             isConnected={isConnected}
+            isReconnecting={isReconnecting}
+            onReconnect={reconnect}
             currentUserId={currentUser.id}
             currentUserName={currentUser.name}
             initialMessages={typedMessages}

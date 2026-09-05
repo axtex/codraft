@@ -220,7 +220,7 @@ export default function MessageBubble({
         <button
           type="button"
           onClick={() => onSectionClick?.(sectionName || message.content)}
-          className="bg-accent-muted text-accent text-xs rounded-full px-3 py-1 hover:opacity-80 transition-opacity"
+          className="bg-accent-muted text-accent text-xs rounded-md px-3 py-1 hover:opacity-80 transition-opacity"
         >
           📝 {message.content}
         </button>

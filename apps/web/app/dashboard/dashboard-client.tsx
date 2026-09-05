@@ -8,6 +8,7 @@ import { Trash2 } from 'lucide-react'
 import { TEMPLATES } from '@/lib/templates'
 import { AuthControls } from '@/components/AuthControls'
 import { CreateRoomModal } from '@/components/room/CreateRoomModal'
+import { JoinRoomModal } from '@/components/room/JoinRoomModal'
 import type { RoomTemplate } from '@codraft/shared'
 
 interface RoomSummary {
@@ -36,6 +37,7 @@ export function DashboardClient({
   userImage?: string
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isJoinOpen, setIsJoinOpen] = useState(false)
   const [roomList, setRoomList] = useState(rooms)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const searchParams = useSearchParams()
@@ -76,11 +78,16 @@ export function DashboardClient({
       </header>
 
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-fg">My Rooms</h1>
-        <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-          + New Room
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" className="btn-ghost" onClick={() => setIsJoinOpen(true)}>
+            Join Room
+          </button>
+          <button type="button" className="btn-primary" onClick={() => setIsModalOpen(true)}>
+            + New Room
+          </button>
+        </div>
       </div>
 
       {roomList.length === 0 ? (
@@ -163,6 +170,7 @@ export function DashboardClient({
       )}
 
       <CreateRoomModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} username={username} />
+      <JoinRoomModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
       </div>
     </div>
   )

@@ -30,7 +30,7 @@ export default function SignInPage({
       <main className="flex flex-1 flex-col items-center justify-center px-5">
         <div className="card w-full max-w-sm px-6 py-8 text-center">
           <h1 className="text-base font-semibold tracking-tight text-fg">
-            Sign in to open one.
+            Sign in to open a room.
           </h1>
 
           {errorMessage && (
