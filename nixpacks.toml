@@ -1,4 +1,0 @@
-# Skip Nixpacks' default `npm ci` at the monorepo root (installs the Next.js
-# app). railway.toml's buildCommand installs apps/server on its own.
-[phases.install]
-cmds = ["true"]
