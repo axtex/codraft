@@ -1,9 +1,37 @@
+# env (keep committed templates)
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
+
+# deps / build
 node_modules
 .next
+out
 dist
 build
+coverage
+*.tsbuildinfo
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+
+# OS / editors
 .DS_Store
+.idea
+.vscode
+*.swp
+*.pem
+
+# hosting / local tooling
+.vercel
+.turbo
+
+# prisma
 prisma/generated
+
+# agent local overrides
+.claude/settings.local.json
