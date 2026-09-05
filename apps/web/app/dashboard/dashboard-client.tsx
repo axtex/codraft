@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { TEMPLATES } from '@/lib/templates'
+import { AuthControls } from '@/components/AuthControls'
 import { CreateRoomModal } from '@/components/room/CreateRoomModal'
 import type { RoomTemplate } from '@codraft/shared'
 
@@ -23,14 +24,26 @@ interface RoomSummary {
 export function DashboardClient({
   rooms,
   username,
+  userName,
+  userImage,
 }: {
   rooms: RoomSummary[]
   username: string
+  userName: string
+  userImage?: string
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="flex min-h-screen flex-col">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
+        <Link href="/dashboard" className="font-bold text-fg">
+          codraft
+        </Link>
+        <AuthControls name={userName} image={userImage} />
+      </header>
+
+      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-fg">My Rooms</h1>
         <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
@@ -110,6 +123,7 @@ export function DashboardClient({
       )}
 
       <CreateRoomModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} username={username} />
+      </div>
     </div>
   )
 }

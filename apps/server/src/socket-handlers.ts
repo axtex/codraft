@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io'
 import * as Y from 'yjs'
-import type { CursorInfo, SectionData } from '@codraft/shared'
+import type { SectionData } from '@codraft/shared'
 import { prisma, getChatHistory } from './db-client'
 import { roomManager } from './room-state'
 import { publishSectionUpdate } from './redis-sync'
@@ -167,9 +167,24 @@ export function registerSocketHandlers(io: Server): void {
       }
     })
 
-    socket.on('cursor-update', (roomId: string, sectionId: string, cursor: CursorInfo) => {
-      socket.to(roomId).emit('cursor-update', cursor)
-    })
+    socket.on(
+      'cursor-update',
+      (payload: {
+        roomId: string
+        sectionId: string
+        userId: string
+        userName: string
+        color: string
+      }) => {
+        if (!payload?.roomId || !payload?.sectionId) return
+        socket.to(payload.roomId).emit('cursor-update', {
+          userId: payload.userId,
+          userName: payload.userName,
+          color: payload.color,
+          sectionId: payload.sectionId,
+        })
+      }
+    )
 
     socket.on('add-section', (roomId: string, section: SectionData) => {
       // Broadcast to everyone including the sender so every open tab adds

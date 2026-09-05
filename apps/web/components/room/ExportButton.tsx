@@ -2,6 +2,7 @@
 
 import { Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Toast, useToast } from '@/hooks/useToast'
 
 interface ExportButtonProps {
   roomId: string
@@ -12,6 +13,7 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState<'markdown' | 'pdf' | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     if (!open) return
@@ -28,7 +30,10 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
     setLoading('markdown')
     try {
       const res = await fetch(`/api/rooms/${roomId}/export?format=markdown`)
-      if (!res.ok) return
+      if (!res.ok) {
+        showToast('Export failed — try again')
+        return
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -38,6 +43,8 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
+    } catch {
+      showToast('Export failed — try again')
     } finally {
       setLoading(null)
       setOpen(false)
@@ -85,6 +92,7 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
           </button>
         </div>
       )}
+      <Toast message={toast} />
     </div>
   )
 }

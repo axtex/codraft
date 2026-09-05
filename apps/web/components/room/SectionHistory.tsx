@@ -66,19 +66,24 @@ export function SectionHistory({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshotId }),
       })
-      if (!res.ok) return
-      setToast('Reverted — refresh to see changes')
-      setTimeout(() => setToast(null), 4000)
+      if (!res.ok) {
+        setToast('Revert failed — try again')
+        return
+      }
+      setToast('Reverted successfully')
+      setTimeout(() => setToast(null), 3000)
       onClose()
+    } catch {
+      setToast('Revert failed — try again')
     } finally {
       setRevertingId(null)
     }
   }
 
-  if (!isOpen) return null
-
   return (
     <>
+      {isOpen && (
+        <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden />
       <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-border bg-bg-card shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -145,11 +150,9 @@ export function SectionHistory({
               )
             })}
         </div>
-
-        <p className="border-t border-border px-4 py-2 text-xs text-fg-subtle">
-          Changes will reflect after refresh
-        </p>
       </aside>
+        </>
+      )}
 
       {toast && (
         <div className="fixed bottom-4 right-4 z-[60] rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-fg shadow-lg">

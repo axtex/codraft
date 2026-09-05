@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { saveSnapshot } from '@/lib/section-history'
+import { notifySectionUpdated } from '@/lib/ws-internal'
 
 export async function POST(
   req: NextRequest,
@@ -49,6 +50,12 @@ export async function POST(
   })
 
   await saveSnapshot(params.sectionId, snapshot.content, session.user.id, 'revert')
+
+  await notifySectionUpdated({
+    roomId: params.id,
+    sectionId: params.sectionId,
+    content: snapshot.content,
+  })
 
   return NextResponse.json({ section: updated })
 }

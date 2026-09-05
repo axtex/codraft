@@ -227,6 +227,15 @@ async function writeAiContentToSection(
   io.to(roomId).emit('section-updated', updated)
 }
 
+function emitSectionStatus(
+  io: Server,
+  roomId: string,
+  sectionId: string,
+  status: 'in_progress' | 'filled' | SectionData['status']
+): void {
+  io.to(roomId).emit('section-status-update', { sectionId, status })
+}
+
 async function generateSectionMarkdown(
   section: SectionData,
   sectionContext: string,
@@ -303,8 +312,9 @@ export async function handleFillSection(
   chatHistory: ChatMessage[],
   sections: SectionData[]
 ): Promise<void> {
+  let target: SectionData | undefined
   try {
-    const target =
+    target =
       sections.find((s) => s.name.toLowerCase() === sectionName.toLowerCase()) ??
       sections.find(
         (s) =>
@@ -313,16 +323,22 @@ export async function handleFillSection(
       )
     if (!target) return
 
+    emitSectionStatus(io, roomId, target.id, 'in_progress')
     const content = await generateSectionMarkdown(
       target,
       buildSectionContext(sections),
       buildChatHistoryText(chatHistory)
     )
-    if (!content) return
+    if (!content) {
+      emitSectionStatus(io, roomId, target.id, target.status)
+      return
+    }
 
     await writeAiContentToSection(io, roomId, target, content)
+    emitSectionStatus(io, roomId, target.id, 'filled')
     await notifySectionFilled(io, roomId, target.name)
   } catch (err) {
+    if (target) emitSectionStatus(io, roomId, target.id, target.status)
     console.error('[ai-handler] handleFillSection failed:', err)
   }
 }
@@ -337,6 +353,7 @@ export async function handleMessage(
   chatHistory: ChatMessage[],
   sections: SectionData[]
 ): Promise<void> {
+  let progressSection: SectionData | undefined
   try {
     const members = roomManager.getOnlineMembers(roomId)
     const mentions = parseMentions(message, sections, members)
@@ -361,6 +378,11 @@ export async function handleMessage(
         ? sections.find((s) => s.name.toLowerCase() === intent.sectionName?.toLowerCase())
         : undefined
 
+    if (writingToSection) {
+      progressSection = writingToSection
+      emitSectionStatus(io, roomId, writingToSection.id, 'in_progress')
+    }
+
     // WRITE-only: put the draft in the doc and leave a short chat notice.
     // Avoid streaming the full section body into the thread.
     if (intent.type === 'WRITE' && writingToSection) {
@@ -371,7 +393,10 @@ export async function handleMessage(
       )
       if (content) {
         await writeAiContentToSection(io, roomId, writingToSection, content)
+        emitSectionStatus(io, roomId, writingToSection.id, 'filled')
         await notifySectionFilled(io, roomId, writingToSection.name)
+      } else {
+        emitSectionStatus(io, roomId, writingToSection.id, writingToSection.status)
       }
       return
     }
@@ -433,7 +458,10 @@ ${
       )
       if (content) {
         await writeAiContentToSection(io, roomId, writingToSection, content)
+        emitSectionStatus(io, roomId, writingToSection.id, 'filled')
         await notifySectionFilled(io, roomId, writingToSection.name)
+      } else {
+        emitSectionStatus(io, roomId, writingToSection.id, writingToSection.status)
       }
     }
 
@@ -457,6 +485,9 @@ ${
   } catch (err) {
     // This runs fire-and-forget from socket-handlers.ts — an unhandled
     // rejection here would crash the process, so swallow and log instead.
+    if (progressSection) {
+      emitSectionStatus(io, roomId, progressSection.id, progressSection.status)
+    }
     console.error('[ai-handler] handleMessage failed:', err)
   }
 }

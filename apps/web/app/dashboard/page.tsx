@@ -46,6 +46,8 @@ export default async function DashboardPage() {
     <DashboardClient
       rooms={serialized}
       username={session.user.username ?? session.user.id ?? 'user'}
+      userName={session.user.name ?? session.user.username ?? 'You'}
+      userImage={session.user.image ?? undefined}
     />
   )
 }

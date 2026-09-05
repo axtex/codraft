@@ -45,8 +45,9 @@ A real-time collaborative workspace where your team and Claude turn conversation
 | `ANTHROPIC_API_KEY` | web, server | Claude API key — all calls use `claude-haiku-4-5-20251001` |
 | `NEXT_PUBLIC_APP_URL` | web | Public frontend origin, used to build invite links |
 | `NEXT_PUBLIC_WS_URL` | web | WebSocket server origin the browser connects to |
+| `WS_SERVER_URL` | web | Server-side WS origin for internal APIs (falls back to `NEXT_PUBLIC_WS_URL`) |
 | `FRONTEND_URL` | server | Allowed CORS origin for the WebSocket server |
-| `ADMIN_SECRET` | reserved | Not yet used |
+| `ADMIN_SECRET` | web, server | Shared secret for `POST /internal/section-update` |
 
 ## Deployment
 

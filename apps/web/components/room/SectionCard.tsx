@@ -18,14 +18,22 @@ interface SectionCardProps {
   roomId: string
   socket: Socket | null
   currentUserId: string
+  currentUserName: string
+  currentUserColor: string
   onAskClaude: (sectionName: string) => void
   initialYjsState?: number[]
   pendingSuggestion?: ExtractionSuggestion | null
 }
 
+interface ActiveEditor {
+  userId: string
+  userName: string
+  color: string
+}
+
 const STATUS_BADGE: Record<SectionStatus, { label: string; className: string }> = {
   empty: { label: 'Empty', className: 'bg-bg-elevated text-fg-subtle' },
-  in_progress: { label: 'Writing...', className: 'bg-warning/10 text-warning animate-pulse' },
+  in_progress: { label: '✨ Writing...', className: 'bg-warning/10 text-warning animate-pulse' },
   filled: { label: 'Filled ✓', className: 'bg-success/10 text-success' },
   human_edited: { label: 'Edited', className: 'bg-accent-muted text-accent' },
 }
@@ -34,7 +42,9 @@ export default function SectionCard({
   section,
   roomId,
   socket,
-  currentUserId: _currentUserId,
+  currentUserId,
+  currentUserName,
+  currentUserColor,
   onAskClaude,
   initialYjsState,
   pendingSuggestion = null,
@@ -42,11 +52,26 @@ export default function SectionCard({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isResolving, setIsResolving] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [status, setStatus] = useState<SectionStatus>(section.status)
+  const [activeUsers, setActiveUsers] = useState<ActiveEditor[]>([])
   const { ydoc } = useYjsSection(socket, roomId, section.id, initialYjsState)
   const hasSeededContent = useRef(false)
   // Tracks the last content applied from section props (seed or Claude fill),
   // so we don't fight live collaborative edits that only live in Yjs.
   const lastAppliedFromProps = useRef<string | null>(null)
+  const activeTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const emitCursorRef = useRef<() => void>(() => {})
+
+  emitCursorRef.current = () => {
+    if (!socket) return
+    socket.emit('cursor-update', {
+      roomId,
+      sectionId: section.id,
+      userId: currentUserId,
+      userName: currentUserName,
+      color: currentUserColor,
+    })
+  }
 
   const editor = useEditor(
     {
@@ -58,6 +83,10 @@ export default function SectionCard({
         }),
       ],
       immediatelyRender: false,
+      onUpdate: ({ editor: ed }) => {
+        if (!ed.isFocused) return
+        emitCursorRef.current()
+      },
     },
     [ydoc]
   )
@@ -95,6 +124,55 @@ export default function SectionCard({
   useEffect(() => {
     if (pendingSuggestion) setIsCollapsed(false)
   }, [pendingSuggestion])
+
+  useEffect(() => {
+    setStatus(section.status)
+  }, [section.status])
+
+  useEffect(() => {
+    if (!socket) return
+
+    const handleCursor = (data: {
+      userId: string
+      userName: string
+      color: string
+      sectionId: string
+    }) => {
+      if (data.sectionId !== section.id) return
+      if (data.userId === currentUserId) return
+      setActiveUsers((prev) => {
+        const next: ActiveEditor = {
+          userId: data.userId,
+          userName: data.userName,
+          color: data.color,
+        }
+        if (prev.some((u) => u.userId === data.userId)) {
+          return prev.map((u) => (u.userId === data.userId ? next : u))
+        }
+        return [...prev, next]
+      })
+      const existing = activeTimeouts.current.get(data.userId)
+      if (existing) clearTimeout(existing)
+      const timeout = setTimeout(() => {
+        setActiveUsers((prev) => prev.filter((u) => u.userId !== data.userId))
+        activeTimeouts.current.delete(data.userId)
+      }, 5000)
+      activeTimeouts.current.set(data.userId, timeout)
+    }
+
+    const handleStatus = (data: { sectionId: string; status: SectionStatus }) => {
+      if (data.sectionId === section.id) setStatus(data.status)
+    }
+
+    socket.on('cursor-update', handleCursor)
+    socket.on('section-status-update', handleStatus)
+    return () => {
+      socket.off('cursor-update', handleCursor)
+      socket.off('section-status-update', handleStatus)
+      for (const timeout of activeTimeouts.current.values()) clearTimeout(timeout)
+      activeTimeouts.current.clear()
+    }
+  }, [socket, section.id, currentUserId])
 
   async function handleAcceptSuggestion() {
     if (!pendingSuggestion || isResolving) return
@@ -137,14 +215,14 @@ export default function SectionCard({
     }
   }
 
-  const badge = STATUS_BADGE[section.status]
-  const showFooter = section.status === 'filled' || section.status === 'human_edited'
+  const badge = STATUS_BADGE[status]
+  const showFooter = status === 'filled' || status === 'human_edited'
 
   return (
     <div
       id={`section-${section.id}`}
       data-section-name={section.name}
-      className={`section-card section-card--${section.status} group`}
+      className={`section-card section-card--${status} group`}
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <span className="text-sm font-medium text-fg">{section.name}</span>
@@ -174,6 +252,15 @@ export default function SectionCard({
 
       {!isCollapsed && (
         <>
+          {activeUsers.length > 0 && (
+            <div className="flex flex-wrap gap-1 border-b border-border px-3 py-1 text-xs text-fg-muted">
+              {activeUsers.map((u) => (
+                <span key={u.userId} style={{ color: u.color }}>
+                  ● {u.userName} is editing
+                </span>
+              ))}
+            </div>
+          )}
           <div className="p-4 pb-2 text-sm text-fg [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-0.5 [&_strong]:font-semibold [&_em]:italic [&_code]:rounded [&_code]:bg-bg-elevated [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs">
             <EditorContent editor={editor} />
           </div>

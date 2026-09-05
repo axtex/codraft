@@ -7,6 +7,8 @@ import { ChatPanel } from '@/components/room/ChatPanel'
 import { ExportButton } from '@/components/room/ExportButton'
 import { SectionsPanel } from '@/components/room/SectionsPanel'
 import { ShareModal } from '@/components/room/ShareModal'
+import { AuthControls } from '@/components/AuthControls'
+import { Toast, useToast } from '@/hooks/useToast'
 import type { ChatMessage, RoomMemberInfo, SectionData, SectionStatus } from '@codraft/shared'
 
 interface RoomWorkspaceProps {
@@ -31,6 +33,7 @@ interface RoomWorkspaceProps {
 export function RoomWorkspace({ room, members, sections, messages, currentUser }: RoomWorkspaceProps) {
   const { socket, isConnected } = useSocket(room.id, currentUser.id, currentUser.name, currentUser.image)
   const [roomName, setRoomName] = useState(room.name)
+  const [savedName, setSavedName] = useState(room.name)
   const [isEditingName, setIsEditingName] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [linkSharingEnabled, setLinkSharingEnabled] = useState(room.linkSharingEnabled)
@@ -39,6 +42,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null)
   const isDraggingRef = useRef(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const { toast, showToast } = useToast()
 
   const typedSections: (SectionData & { yjsState?: number[] })[] = sections.map((s) => ({
     ...s,
@@ -64,27 +68,51 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   const isOwner = room.ownerId === currentUser.id
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/join/${room.inviteToken}`
   const onlineCount = presence.filter((p) => p.isOnline).length || 1
+  const currentUserColor =
+    presence.find((p) => p.userId === currentUser.id)?.cursorColor ?? '#6366f1'
 
   async function saveRoomName() {
     setIsEditingName(false)
-    if (roomName.trim() === room.name || !roomName.trim()) {
-      setRoomName(room.name)
+    if (roomName.trim() === savedName || !roomName.trim()) {
+      setRoomName(savedName)
       return
     }
-    await fetch(`/api/rooms/${room.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: roomName.trim() }),
-    })
+    const next = roomName.trim()
+    try {
+      const res = await fetch(`/api/rooms/${room.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: next }),
+      })
+      if (!res.ok) {
+        setRoomName(savedName)
+        showToast('Failed to save — try again')
+        return
+      }
+      setSavedName(next)
+    } catch {
+      setRoomName(savedName)
+      showToast('Failed to save — try again')
+    }
   }
 
   async function toggleLinkSharing(next: boolean) {
+    const previous = linkSharingEnabled
     setLinkSharingEnabled(next)
-    await fetch(`/api/rooms/${room.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ linkSharingEnabled: next }),
-    })
+    try {
+      const res = await fetch(`/api/rooms/${room.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkSharingEnabled: next }),
+      })
+      if (!res.ok) {
+        setLinkSharingEnabled(previous)
+        showToast('Failed to save — try again')
+      }
+    } catch {
+      setLinkSharingEnabled(previous)
+      showToast('Failed to save — try again')
+    }
   }
 
   function askClaudeToFill(sectionName: string) {
@@ -167,6 +195,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
           <button className="btn-primary" onClick={() => setIsShareOpen(true)}>
             Share
           </button>
+          <AuthControls name={currentUser.name} image={currentUser.image} />
         </div>
       </header>
 
@@ -201,6 +230,8 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
             initialSections={typedSections}
             socket={socket}
             currentUserId={currentUser.id}
+            currentUserName={currentUser.name}
+            currentUserColor={currentUserColor}
             onAskClaude={askClaudeToFill}
           />
         </div>
@@ -215,6 +246,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
         members={presence.map((p) => ({ userId: p.userId, name: p.name, image: p.image, role: p.role }))}
         onToggleLinkSharing={toggleLinkSharing}
       />
+      <Toast message={toast} />
     </div>
   )
 }

@@ -13,6 +13,8 @@ interface SectionsPanelProps {
   initialSections: SectionWithYjs[]
   socket: Socket | null
   currentUserId: string
+  currentUserName: string
+  currentUserColor: string
   onAskClaude: (sectionName: string) => void
 }
 
@@ -21,6 +23,8 @@ function SectionsPanel({
   initialSections,
   socket,
   currentUserId,
+  currentUserName,
+  currentUserColor,
   onAskClaude,
 }: SectionsPanelProps) {
   const [sections, setSections] = useState<SectionData[]>(initialSections)
@@ -99,14 +103,22 @@ function SectionsPanel({
       })
     }
 
+    const handleStatusUpdate = (data: { sectionId: string; status: SectionData['status'] }) => {
+      setSections((prev) =>
+        prev.map((s) => (s.id === data.sectionId ? { ...s, status: data.status } : s))
+      )
+    }
+
     socket.on('section-added', handleSectionAdded)
     socket.on('section-updated', handleSectionUpdated)
+    socket.on('section-status-update', handleStatusUpdate)
     socket.on('extraction-suggestion', handleSuggestion)
     socket.on('suggestion-resolved', handleResolved)
 
     return () => {
       socket.off('section-added', handleSectionAdded)
       socket.off('section-updated', handleSectionUpdated)
+      socket.off('section-status-update', handleStatusUpdate)
       socket.off('extraction-suggestion', handleSuggestion)
       socket.off('suggestion-resolved', handleResolved)
     }
@@ -137,6 +149,8 @@ function SectionsPanel({
             roomId={roomId}
             socket={socket}
             currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserColor={currentUserColor}
             onAskClaude={onAskClaude}
             initialYjsState={yjsStateById.get(section.id)}
             pendingSuggestion={pendingBySection[section.id] ?? null}
