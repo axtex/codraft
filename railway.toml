@@ -1,0 +1,12 @@
+# Used when Railway Root Directory is the repo root (not apps/server).
+# The service named `codraft` currently deploys this way.
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm install --include=dev && npm run build --workspace=@codraft/server"
+
+[deploy]
+startCommand = "node apps/server/scripts/start.cjs"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ALWAYS"

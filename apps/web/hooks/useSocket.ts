@@ -3,6 +3,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
+function resolveWsUrl(raw: string): string | null {
+  let url = raw.trim().replace(/\/$/, '')
+  if (!url) return null
+
+  if (typeof window === 'undefined') return url
+
+  // HTTPS pages cannot open http:// sockets (mixed content). Railway is TLS.
+  if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+    url = `https://${url.slice('http://'.length)}`
+  }
+
+  const wsIsLocal = /localhost|127\.0\.0\.1/.test(url)
+  const pageIsLocal = /localhost|127\.0\.0\.1/.test(window.location.hostname)
+  if (wsIsLocal && !pageIsLocal) {
+    console.error(
+      '[useSocket] NEXT_PUBLIC_WS_URL is localhost on a deployed page. Set it to the Railway HTTPS origin and redeploy Vercel.'
+    )
+    return null
+  }
+
+  return url
+}
+
 export function useSocket(
   roomId: string,
   userId: string,
@@ -22,15 +45,15 @@ export function useSocket(
     // Guard inside the effect (not around the hook call) to keep hook order stable.
     if (!roomId || !userId) return
 
-    const url = process.env.NEXT_PUBLIC_WS_URL
+    const url = resolveWsUrl(process.env.NEXT_PUBLIC_WS_URL ?? '')
     if (!url) {
       console.error('[useSocket] NEXT_PUBLIC_WS_URL is not set')
       return
     }
 
-    // Polling first, then upgrade — Railway's proxy is more reliable that way
-    // than opening a raw WebSocket immediately. Rejoin the room on every
-    // connect, including auto-reconnect after a dropped session.
+    // Default transports (polling, then websocket). Do not send cookies —
+    // withCredentials + a tight CORS allowlist is a common production
+    // reconnect loop. Rejoin the room on every connect, including auto-reconnect.
     const socketInstance = io(url, {
       autoConnect: true,
       reconnection: true,
@@ -38,8 +61,7 @@ export function useSocket(
       reconnectionDelay: 1000,
       reconnectionDelayMax: 8000,
       timeout: 20000,
-      transports: ['polling', 'websocket'],
-      withCredentials: true,
+      withCredentials: false,
     })
 
     const handleConnect = () => {

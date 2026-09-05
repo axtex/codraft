@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/server/**'
       - 'packages/shared/**'
+      - 'railway.toml'
 
 jobs:
   deploy:
@@ -17,7 +18,7 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy to Railway
-        run: railway up --ci --service codraft-server
+        run: railway up --ci --service codraft
         working-directory: apps/server
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

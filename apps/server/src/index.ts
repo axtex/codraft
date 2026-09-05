@@ -5,6 +5,13 @@ dotenv.config()
 // Shared local secrets live in apps/web/.env.local (Next.js's env file).
 dotenv.config({ path: path.resolve(process.cwd(), '../web/.env.local') })
 
+process.on('uncaughtException', (err) => {
+  console.error('[fatal uncaughtException]', err)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('[fatal unhandledRejection]', err)
+})
+
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
@@ -19,35 +26,17 @@ function stripTrailingSlash(origin: string): string {
   return origin.replace(/\/$/, '')
 }
 
-// FRONTEND_URL can be a single origin or a comma-separated list. Always
-// include known production hosts so a stale dashboard value cannot lock
-// the new Vercel / custom domain out of CORS.
-const corsOrigins = new Set(
-  [
-    'http://localhost:3000',
-    'https://codraft-slate.vercel.app',
-    'https://codraft.app',
-    'https://www.codraft.app',
-    ...(process.env.FRONTEND_URL ?? '').split(','),
-  ]
-    .map((s) => stripTrailingSlash(s.trim()))
-    .filter(Boolean)
-)
+const extraOrigins = (process.env.FRONTEND_URL ?? '')
+  .split(',')
+  .map((s) => stripTrailingSlash(s.trim()))
+  .filter(Boolean)
 
-function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true
-  const normalized = stripTrailingSlash(origin)
-  if (corsOrigins.has(normalized)) return true
-  // Vercel preview deployments for this project.
-  if (/^https:\/\/codraft-slate[\w-]*\.vercel\.app$/.test(normalized)) return true
-  return false
-}
-
+// Reflecting the request origin avoids a reconnect loop when the browser
+// origin (custom domain, preview URL) isn't an exact FRONTEND_URL match.
+// Socket auth is not cookie-based, so credentials are left off.
 const corsOptions = {
-  origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    callback(null, isAllowedOrigin(origin))
-  },
-  credentials: true,
+  origin: true as const,
+  credentials: false,
 }
 
 const app = express()
@@ -55,20 +44,23 @@ app.set('trust proxy', 1)
 app.use(cors(corsOptions))
 app.use(express.json())
 
-app.get('/health', (_req, res) => {
+function health(_req: express.Request, res: express.Response): void {
   res.json({
     status: 'ok',
     rooms: roomManager.getRoomCount(),
     connections: roomManager.getConnectionCount(),
   })
-})
+}
+
+app.get('/', health)
+app.get('/health', health)
 
 const server = createServer(app)
 const io = new Server(server, {
   cors: corsOptions,
-  transports: ['polling', 'websocket'],
   pingInterval: 25000,
-  pingTimeout: 20000,
+  pingTimeout: 60000,
+  allowEIO3: true,
 })
 
 app.post('/internal/section-update', async (req, res) => {
@@ -105,6 +97,9 @@ registerSocketHandlers(io)
 // Bind 0.0.0.0 so Railway (and other container hosts) can reach the process.
 server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`codraft WebSocket server listening on 0.0.0.0:${PORT}`)
+  if (extraOrigins.length > 0) {
+    console.log('[server] FRONTEND_URL origins:', extraOrigins.join(', '))
+  }
 })
 
 server.on('error', (err) => {
