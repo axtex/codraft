@@ -62,6 +62,10 @@ export function useSocket(
       reconnectionDelayMax: 8000,
       timeout: 20000,
       withCredentials: false,
+      path: '/socket.io/',
+      // Stay on polling if Railway's proxy fails the websocket upgrade (502).
+      transports: ['polling', 'websocket'],
+      upgrade: true,
     })
 
     const handleConnect = () => {

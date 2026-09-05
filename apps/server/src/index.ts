@@ -20,16 +20,7 @@ import { roomManager } from './room-state'
 import { registerSocketHandlers } from './socket-handlers'
 import { prisma } from './db-client'
 
-const PORT = process.env.PORT || 3001
-
-function stripTrailingSlash(origin: string): string {
-  return origin.replace(/\/$/, '')
-}
-
-const extraOrigins = (process.env.FRONTEND_URL ?? '')
-  .split(',')
-  .map((s) => stripTrailingSlash(s.trim()))
-  .filter(Boolean)
+const PORT = Number(process.env.PORT) || 3001
 
 // Reflecting the request origin avoids a reconnect loop when the browser
 // origin (custom domain, preview URL) isn't an exact FRONTEND_URL match.
@@ -41,6 +32,11 @@ const corsOptions = {
 
 const app = express()
 app.set('trust proxy', 1)
+app.use((req, _res, next) => {
+  // Confirms whether Railway's proxy/healthcheck actually reaches Node.
+  console.log(`[http] ${req.method} ${req.url}`)
+  next()
+})
 app.use(cors(corsOptions))
 app.use(express.json())
 
@@ -58,8 +54,11 @@ app.get('/health', health)
 const server = createServer(app)
 const io = new Server(server, {
   cors: corsOptions,
+  path: '/socket.io/',
+  transports: ['polling', 'websocket'],
   pingInterval: 25000,
   pingTimeout: 60000,
+  connectTimeout: 20000,
   allowEIO3: true,
 })
 
@@ -94,12 +93,19 @@ app.post('/internal/section-update', async (req, res) => {
 
 registerSocketHandlers(io)
 
-// Bind 0.0.0.0 so Railway (and other container hosts) can reach the process.
-server.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`codraft WebSocket server listening on 0.0.0.0:${PORT}`)
-  if (extraOrigins.length > 0) {
-    console.log('[server] FRONTEND_URL origins:', extraOrigins.join(', '))
-  }
+// Do not pass a host: `0.0.0.0` is IPv4-only, and Railway's proxy/healthcheck
+// may use IPv6. Omitting the host lets Node bind `::` (dual-stack) when available.
+// keepAliveTimeout must exceed the proxy idle timeout or reused sockets 502.
+server.keepAliveTimeout = 65_000
+server.headersTimeout = 66_000
+server.listen(PORT, () => {
+  console.log(`codraft WebSocket server listening`, server.address())
+  console.log('[server] env', {
+    DATABASE_URL: process.env.DATABASE_URL ? 'set' : 'MISSING',
+    FRONTEND_URL: process.env.FRONTEND_URL || '(unset)',
+    ADMIN_SECRET: process.env.ADMIN_SECRET ? 'set' : 'MISSING',
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING',
+  })
 })
 
 server.on('error', (err) => {

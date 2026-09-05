@@ -131,7 +131,7 @@ export async function saveSnapshot(
   })
 
   if (snapshots.length > 20) {
-    const toDelete = snapshots.slice(20).map((s) => s.id)
+    const toDelete = snapshots.slice(20).map((row: { id: string }) => row.id)
     await prisma.sectionSnapshot.deleteMany({
       where: { id: { in: toDelete } },
     })

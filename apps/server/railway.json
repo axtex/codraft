@@ -6,8 +6,6 @@
   },
   "deploy": {
     "startCommand": "node scripts/start.cjs",
-    "healthcheckPath": "/health",
-    "healthcheckTimeout": 300,
     "restartPolicyType": "ALWAYS"
   }
 }
