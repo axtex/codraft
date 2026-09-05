@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { TEMPLATES } from '@/lib/templates'
 import { AuthControls } from '@/components/AuthControls'
@@ -33,6 +34,16 @@ export function DashboardClient({
   userImage?: string
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const shouldCreate = searchParams.get('create')
+
+  useEffect(() => {
+    if (shouldCreate === 'true') {
+      setIsModalOpen(true)
+      router.replace('/dashboard', { scroll: false })
+    }
+  }, [shouldCreate, router])
 
   return (
     <div className="flex min-h-screen flex-col">

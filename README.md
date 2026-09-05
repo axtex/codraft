@@ -39,7 +39,7 @@ A real-time collaborative workspace where your team and Claude turn conversation
 |---|---|---|
 | `AUTH_SECRET` | web | NextAuth session encryption secret |
 | `NEXTAUTH_URL` | web | Canonical app URL for NextAuth callbacks |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | web | GitHub OAuth App credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | web | Google OAuth credentials |
 | `DATABASE_URL` | web, server | PostgreSQL connection string (Railway) |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | server | Upstash Redis REST credentials for multi-instance sync |
 | `ANTHROPIC_API_KEY` | web, server | Claude API key — all calls use `claude-haiku-4-5-20251001` |

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardClient } from './dashboard-client'
@@ -43,11 +44,13 @@ export default async function DashboardPage() {
   }))
 
   return (
-    <DashboardClient
-      rooms={serialized}
-      username={session.user.username ?? session.user.id ?? 'user'}
-      userName={session.user.name ?? session.user.username ?? 'You'}
-      userImage={session.user.image ?? undefined}
-    />
+    <Suspense fallback={null}>
+      <DashboardClient
+        rooms={serialized}
+        username={session.user.username ?? session.user.id ?? 'user'}
+        userName={session.user.name ?? session.user.username ?? 'You'}
+        userImage={session.user.image ?? undefined}
+      />
+    </Suspense>
   )
 }

@@ -2,8 +2,8 @@ import dotenv from 'dotenv'
 import path from 'path'
 
 dotenv.config()
-// Local monorepo: ADMIN_SECRET and friends live in the repo-root .env.local.
-dotenv.config({ path: path.resolve(process.cwd(), '../../.env.local') })
+// Shared local secrets live in apps/web/.env.local (Next.js's env file).
+dotenv.config({ path: path.resolve(process.cwd(), '../web/.env.local') })
 
 import express from 'express'
 import cors from 'cors'

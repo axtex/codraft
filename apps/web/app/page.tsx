@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { auth } from '@/auth'
 import { TEMPLATES } from '@/lib/templates'
 
 const STEPS = [
@@ -9,7 +10,12 @@ const STEPS = [
 
 const SHOWCASE_TEMPLATES = ['trip', 'meeting', 'project'] as const
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await auth()
+  const createRoomHref = session?.user
+    ? '/dashboard?create=true'
+    : `/auth/signin?callbackUrl=${encodeURIComponent('/dashboard?create=true')}`
+
   return (
     <main className="flex-1">
       {/* Hero */}
@@ -24,7 +30,7 @@ export default function LandingPage() {
           into structured documents — automatically.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/dashboard" className="btn-primary px-6 py-3 text-base">
+          <Link href={createRoomHref} className="btn-primary px-6 py-3 text-base">
             Create a room
           </Link>
           <a href="#how-it-works" className="btn-ghost px-6 py-3 text-base">
