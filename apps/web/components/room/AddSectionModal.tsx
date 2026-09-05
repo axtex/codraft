@@ -67,9 +67,12 @@ export default function AddSectionModal({ roomId, socket, isOpen, onClose, onCre
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !name.trim()}
-            className="btn-primary text-xs"
+            className="btn-primary relative min-w-[7.5rem] px-3 py-1.5 text-xs"
           >
-            {isSubmitting ? 'Adding...' : 'Add Section'}
+            <span className={isSubmitting ? 'invisible' : undefined}>Add Section</span>
+            {isSubmitting && (
+              <span className="absolute inset-0 flex items-center justify-center">Adding...</span>
+            )}
           </button>
         </div>
       </div>

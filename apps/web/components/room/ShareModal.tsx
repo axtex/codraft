@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, X } from 'lucide-react'
 
 interface Member {
   userId: string
@@ -42,7 +42,17 @@ export function ShareModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
       <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-fg">Share this room</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-fg">Share this room</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="-mr-1.5 -mt-1.5 rounded p-1.5 text-fg-subtle hover:bg-bg-surface hover:text-fg"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         <div className="mt-4">
           <label className="text-xs font-medium text-fg-muted">Invite link</label>
@@ -120,7 +130,7 @@ export function ShareModal({
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button className="btn-ghost" onClick={onClose}>
+          <button className="btn-ghost px-3 py-1.5 text-sm" onClick={onClose}>
             Done
           </button>
         </div>

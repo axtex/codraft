@@ -252,7 +252,7 @@ function ChatPanel({
           )}
         </span>
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-success" />
+          <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-fg-subtle'}`} />
           <span className="text-xs text-fg-muted">{onlineCount} online</span>
         </div>
       </div>
@@ -324,7 +324,7 @@ function ChatPanel({
             onKeyDown={handleKeyDown}
             placeholder="Message your team and Claude..."
             rows={1}
-            className="flex-1 resize-none bg-bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent"
+            className="chat-composer flex-1 resize-none bg-bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent"
           />
           <button
             type="button"

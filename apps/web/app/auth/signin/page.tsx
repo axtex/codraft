@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { SignInButton } from '@/components/SignInButton'
 
 const SIGNIN_ERRORS: Record<string, string> = {
@@ -19,25 +20,32 @@ export default function SignInPage({
     : null
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b0b0f] px-4">
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131318] p-8 text-center shadow-2xl">
-        <h1 className="text-2xl font-bold tracking-tight text-white">codraft</h1>
-        <p className="mt-2 text-sm text-white/50">
-          Think together. Build together.
-        </p>
+    <>
+      <header className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
+        <Link href="/" className="font-semibold tracking-tight text-fg">
+          codraft
+        </Link>
+      </header>
 
-        {errorMessage && (
-          <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-            {errorMessage}
-          </p>
-        )}
+      <main className="flex flex-1 flex-col items-center justify-center px-5">
+        <div className="card w-full max-w-sm px-6 py-8 text-center">
+          <h1 className="text-base font-semibold tracking-tight text-fg">
+            Sign in to open one.
+          </h1>
 
-        <div className="mt-8">
-          <SignInButton
-            callbackUrl={searchParams?.callbackUrl || '/dashboard?create=true'}
-          />
+          {errorMessage && (
+            <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
+              {errorMessage}
+            </p>
+          )}
+
+          <div className="mt-6">
+            <SignInButton
+              callbackUrl={searchParams?.callbackUrl || '/dashboard?create=true'}
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   )
 }

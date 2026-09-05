@@ -141,6 +141,13 @@ class RoomManager {
     return doc
   }
 
+  getSectionText(roomId: string, sectionId: string): string {
+    const room = this.rooms.get(roomId)
+    const ydoc = room?.sections.get(sectionId)
+    if (!ydoc) return ''
+    return getSectionPlainText(ydoc)
+  }
+
   scheduleSectionSave(roomId: string, sectionId: string, ydoc: Y.Doc): void {
     const room = this.getOrCreate(roomId)
     const existing = room.saveTimeouts.get(sectionId)

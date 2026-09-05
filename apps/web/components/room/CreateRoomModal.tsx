@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { X } from 'lucide-react'
 import { TEMPLATES } from '@/lib/templates'
 import { generateSlug, generateFullSlug } from '@/lib/room-utils'
 import { detectTemplate } from '@/lib/templates'
@@ -73,9 +74,23 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="card w-full max-w-md p-6">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-fg">
+            {step === 'name' ? 'Create a room' : 'Visibility'}
+          </h2>
+          <button
+            type="button"
+            onClick={close}
+            disabled={!!progress}
+            className="-mr-1.5 -mt-1.5 rounded p-1.5 text-fg-subtle hover:bg-bg-surface hover:text-fg disabled:opacity-40"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
         {step === 'name' && (
           <>
-            <h2 className="text-lg font-semibold text-fg">Create a room</h2>
             <label className="mt-4 block text-sm font-medium text-fg">Room name</label>
             <input
               autoFocus
@@ -120,16 +135,13 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button className="btn-ghost" onClick={close}>
-                Cancel
-              </button>
+            <div className="mt-6 flex justify-end">
               <button
                 className="btn-primary"
                 disabled={!name.trim()}
                 onClick={() => setStep('settings')}
               >
-                Continue →
+                Continue
               </button>
             </div>
           </>
@@ -137,7 +149,6 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
 
         {step === 'settings' && (
           <>
-            <h2 className="text-lg font-semibold text-fg">Visibility</h2>
             <div className="mt-4 space-y-2">
               <button
                 type="button"
@@ -165,7 +176,7 @@ export function CreateRoomModal({ isOpen, onClose, username }: CreateRoomModalPr
 
             <div className="mt-6 flex justify-between gap-2">
               <button className="btn-ghost" onClick={() => setStep('name')} disabled={!!progress}>
-                ← Back
+                Back
               </button>
               <button className="btn-primary" onClick={handleCreate} disabled={!!progress}>
                 {progress ?? 'Create Room'}

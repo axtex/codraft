@@ -22,7 +22,7 @@ interface SectionHistoryProps {
 
 const REASON_BADGE: Record<string, { label: string; className: string }> = {
   user_edit: { label: '✏️ Edited', className: 'bg-blue-500/15 text-blue-600' },
-  claude_fill: { label: '✨ Claude', className: 'bg-indigo-500/15 text-indigo-600' },
+  claude_fill: { label: '✨ Claude', className: 'bg-accent-muted text-accent' },
   extraction_accepted: { label: '🎯 Extracted', className: 'bg-emerald-500/15 text-emerald-700' },
   revert: { label: '↩️ Reverted', className: 'bg-orange-500/15 text-orange-600' },
 }

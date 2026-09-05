@@ -40,7 +40,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
           image: m.user.image ?? undefined,
           role: m.role as RoomMemberInfo['role'],
           isOnline: false,
-          cursorColor: '#6366f1',
+          cursorColor: '#13367d',
         })
       )}
       sections={room.sections.map((s) => ({

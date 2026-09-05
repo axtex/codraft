@@ -1,7 +1,7 @@
 import type { Server, Socket } from 'socket.io'
 import * as Y from 'yjs'
 import type { SectionData } from '@codraft/shared'
-import { prisma, getChatHistory } from './db-client'
+import { prisma, getChatHistory, saveSnapshot } from './db-client'
 import { roomManager } from './room-state'
 import { publishSectionUpdate } from './redis-sync'
 import { handleMessage, handleFillSection } from './ai-handler'
@@ -167,6 +167,47 @@ export function registerSocketHandlers(io: Server): void {
       }
     })
 
+    // Focused typing only — Claude setContent also produces yjs-update, so we
+    // must not treat every CRDT write as a human edit.
+    socket.on(
+      'section-human-edit',
+      async (roomId: string, sectionId: string, userId: string) => {
+        if (
+          typeof roomId !== 'string' ||
+          typeof sectionId !== 'string' ||
+          typeof userId !== 'string'
+        ) {
+          return
+        }
+        try {
+          const content = roomManager.getSectionText(roomId, sectionId)
+          const status = content.trim() ? 'human_edited' : 'empty'
+          await prisma.section.update({
+            where: { id: sectionId },
+            data: {
+              status,
+              updatedBy: userId,
+              ...(content.trim() ? { content } : {}),
+            },
+          })
+          if (content.trim()) {
+            const last = await prisma.sectionSnapshot.findFirst({
+              where: { sectionId },
+              orderBy: { createdAt: 'desc' },
+              select: { content: true, reason: true },
+            })
+            // Skip if this debounce fired with the same body we already stored.
+            if (!(last?.reason === 'user_edit' && last.content === content)) {
+              await saveSnapshot(sectionId, content, userId, 'user_edit')
+            }
+          }
+          io.to(roomId).emit('section-status-update', { sectionId, status })
+        } catch (err) {
+          console.error('[socket-handlers] section-human-edit failed:', err)
+        }
+      }
+    )
+
     socket.on(
       'cursor-update',
       (payload: {
@@ -190,6 +231,14 @@ export function registerSocketHandlers(io: Server): void {
       // Broadcast to everyone including the sender so every open tab adds
       // the card consistently (rather than the sender adding it optimistically).
       io.to(roomId).emit('section-added', section)
+    })
+
+    socket.on('delete-section', (roomId: string, sectionId: string) => {
+      io.to(roomId).emit('section-deleted', { sectionId })
+    })
+
+    socket.on('reorder-sections', (roomId: string, sections: { id: string; order: number }[]) => {
+      io.to(roomId).emit('sections-reordered', sections)
     })
 
     socket.on(

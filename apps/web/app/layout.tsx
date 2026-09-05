@@ -16,8 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'codraft — Think together. Build together.',
-  description:
-    'A collaborative workspace where your team and Claude turn conversations into structured documents — automatically.',
+  description: 'A room is a conversation and a document. You talk. The page takes shape.',
 }
 
 export default function RootLayout({

@@ -69,7 +69,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/join/${room.inviteToken}`
   const onlineCount = presence.filter((p) => p.isOnline).length || 1
   const currentUserColor =
-    presence.find((p) => p.userId === currentUser.id)?.cursorColor ?? '#6366f1'
+    presence.find((p) => p.userId === currentUser.id)?.cursorColor ?? '#13367d'
 
   async function saveRoomName() {
     setIsEditingName(false)
@@ -116,10 +116,11 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
   }
 
   function askClaudeToFill(sectionName: string) {
-    // Dedicated fill event — keeps the chat clear of the prompt + draft dump.
-    if (socket) {
-      socket.emit('fill-section', room.id, sectionName, currentUser.id, currentUser.name)
+    if (!socket || !isConnected) {
+      showToast('Not connected — try refreshing')
+      return
     }
+    socket.emit('fill-section', room.id, sectionName, currentUser.id, currentUser.name)
   }
 
   function startDrag() {
@@ -192,7 +193,7 @@ export function RoomWorkspace({ room, members, sections, messages, currentUser }
 
         <div className="flex items-center gap-2">
           <ExportButton roomId={room.id} roomName={roomName} />
-          <button className="btn-primary" onClick={() => setIsShareOpen(true)}>
+          <button className="btn-primary px-2 py-1 text-xs" onClick={() => setIsShareOpen(true)}>
             Share
           </button>
           <AuthControls name={currentUser.name} image={currentUser.image} />

@@ -20,7 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async jwt({ token, user }) {
-      if (user) {
+      if (user?.id) {
         token.id = user.id
 
         // Google has no GitHub-style login; use the email local-part for room slugs.

@@ -6,7 +6,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import type { ExtractionSuggestion, SectionData, SectionStatus } from '@codraft/shared'
 import { formatDistanceToNow } from 'date-fns'
-import { Check, ChevronDown, ChevronUp, History, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, History, MoreHorizontal, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { useYjsSection } from '@/hooks/useYjsSection'
@@ -23,6 +23,10 @@ interface SectionCardProps {
   onAskClaude: (sectionName: string) => void
   initialYjsState?: number[]
   pendingSuggestion?: ExtractionSuggestion | null
+  canMoveUp: boolean
+  canMoveDown: boolean
+  onMove: (direction: 'up' | 'down') => void
+  onDelete: () => void
 }
 
 interface ActiveEditor {
@@ -48,10 +52,15 @@ export default function SectionCard({
   onAskClaude,
   initialYjsState,
   pendingSuggestion = null,
+  canMoveUp,
+  canMoveDown,
+  onMove,
+  onDelete,
 }: SectionCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isResolving, setIsResolving] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [status, setStatus] = useState<SectionStatus>(section.status)
   const [activeUsers, setActiveUsers] = useState<ActiveEditor[]>([])
   const { ydoc } = useYjsSection(socket, roomId, section.id, initialYjsState)
@@ -61,6 +70,21 @@ export default function SectionCard({
   const lastAppliedFromProps = useRef<string | null>(null)
   const activeTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const emitCursorRef = useRef<() => void>(() => {})
+  const persistHumanEditRef = useRef<() => void>(() => {})
+  const humanEditTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const humanEditDirty = useRef(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function onPointerDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [menuOpen])
 
   emitCursorRef.current = () => {
     if (!socket) return
@@ -71,6 +95,18 @@ export default function SectionCard({
       userName: currentUserName,
       color: currentUserColor,
     })
+  }
+
+  persistHumanEditRef.current = () => {
+    if (!socket || !humanEditDirty.current) return
+    humanEditDirty.current = false
+    socket.emit('section-human-edit', roomId, section.id, currentUserId)
+  }
+
+  function scheduleHumanEditPersist() {
+    if (humanEditTimer.current) clearTimeout(humanEditTimer.current)
+    // Wait until typing pauses so history isn't one snapshot per keystroke.
+    humanEditTimer.current = setTimeout(() => persistHumanEditRef.current(), 1500)
   }
 
   const editor = useEditor(
@@ -86,6 +122,9 @@ export default function SectionCard({
       onUpdate: ({ editor: ed }) => {
         if (!ed.isFocused) return
         emitCursorRef.current()
+        humanEditDirty.current = true
+        setStatus(ed.getText().trim() ? 'human_edited' : 'empty')
+        scheduleHumanEditPersist()
       },
     },
     [ydoc]
@@ -119,6 +158,27 @@ export default function SectionCard({
     lastAppliedFromProps.current = section.content
     editor.commands.setContent(markdownToHtml(section.content))
   }, [editor, section.content, section.updatedAt])
+
+  useEffect(() => {
+    if (!editor) return
+    const flush = () => {
+      if (humanEditTimer.current) {
+        clearTimeout(humanEditTimer.current)
+        humanEditTimer.current = null
+      }
+      persistHumanEditRef.current()
+    }
+    editor.on('blur', flush)
+    return () => {
+      editor.off('blur', flush)
+    }
+  }, [editor])
+
+  useEffect(() => {
+    return () => {
+      if (humanEditTimer.current) clearTimeout(humanEditTimer.current)
+    }
+  }, [])
 
   // Expand so the pending highlight is visible.
   useEffect(() => {
@@ -223,32 +283,80 @@ export default function SectionCard({
       id={`section-${section.id}`}
       data-section-name={section.name}
       className={`section-card section-card--${status} group`}
+      data-section-id={section.id}
     >
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-        <span className="text-sm font-medium text-fg">{section.name}</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            className="text-fg-subtle opacity-0 transition-opacity hover:text-fg group-hover:opacity-100 focus:opacity-100"
-            aria-label="Section history"
-            title="History"
-          >
-            <History className="h-4 w-4" />
-          </button>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>
-            {badge.label}
-          </span>
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
           <button
             type="button"
             onClick={() => setIsCollapsed((c) => !c)}
-            className="text-fg-subtle hover:text-fg"
+            className="-ml-0.5 shrink-0 rounded p-0.5 text-fg-subtle hover:bg-bg-surface hover:text-fg"
             aria-label={isCollapsed ? 'Expand section' : 'Collapse section'}
           >
-            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{section.name}</span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="text-fg-subtle opacity-0 transition-opacity hover:text-fg group-hover:opacity-100 focus:opacity-100"
+              aria-label="Section history"
+              title="History"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>
+              {badge.label}
+            </span>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="rounded p-0.5 text-fg-subtle hover:bg-bg-surface hover:text-fg"
+                aria-label="Section actions"
+                aria-expanded={menuOpen}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-1 min-w-[9rem] rounded-lg border border-border bg-bg-card py-1 shadow-lg">
+                  <button
+                    type="button"
+                    disabled={!canMoveUp}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onMove('up')
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-surface disabled:text-fg-subtle disabled:hover:bg-transparent"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canMoveDown}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onMove('down')
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-surface disabled:text-fg-subtle disabled:hover:bg-transparent"
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onDelete()
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-bg-surface"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
 
       {!isCollapsed && (
         <>
@@ -292,7 +400,7 @@ export default function SectionCard({
           )}
 
           <div className="px-4 pb-3">
-            <button type="button" onClick={() => onAskClaude(section.name)} className="btn-ghost text-xs">
+            <button type="button" onClick={() => onAskClaude(section.name)} className="btn-ghost px-2 py-1 text-xs">
               ✨ Ask Claude to fill
             </button>
           </div>

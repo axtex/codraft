@@ -41,6 +41,7 @@ export default async function DashboardPage() {
     lastMessage: room.messages[0]
       ? { content: room.messages[0].content, createdAt: room.messages[0].createdAt.toISOString() }
       : null,
+    isOwner: room.ownerId === session.user.id,
   }))
 
   return (

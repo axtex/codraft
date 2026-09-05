@@ -135,7 +135,7 @@ function renderMentionPill(
     return (
       <span
         key={key}
-        className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-xs font-medium text-indigo-600"
+        className="inline-flex items-center rounded-full bg-accent-muted px-1.5 py-0.5 text-xs font-medium text-accent"
       >
         @Claude
       </span>
