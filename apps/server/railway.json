@@ -6,6 +6,6 @@
   },
   "deploy": {
     "startCommand": "node scripts/start.cjs",
-    "restartPolicyType": "ALWAYS"
+    "restartPolicyType": "ON_FAILURE"
   }
 }
