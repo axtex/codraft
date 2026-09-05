@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001
 // Localhost for dev + FRONTEND_URL for production (Vercel).
 const corsOrigins = [
   'http://localhost:3000',
-  process.env.FRONTEND_URL || 'https://codraft.vercel.app',
+  process.env.FRONTEND_URL || 'https://codraft-slate.vercel.app',
 ]
 
 const app = express()
