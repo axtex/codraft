@@ -1,9 +1,11 @@
-# Used when Railway Root Directory is the repo root (not apps/server).
-# The service named `codraft` currently deploys this way.
+# Railway service `codraft` uses the repo root as its build context.
+# Do not `npm install` the whole workspace from here — that pulls in Next.js
+# and fails the image build. The WS server is self-contained in apps/server
+# (shared types are vendored).
 
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --include=dev && npm run build --workspace=@codraft/server"
+buildCommand = "npm --prefix apps/server install --include=dev --no-workspaces && npm --prefix apps/server run build"
 
 [deploy]
 startCommand = "node apps/server/scripts/start.cjs"
