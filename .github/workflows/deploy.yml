@@ -17,8 +17,10 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy to Railway
+        # Upload the repo root. The Railway service root is apps/server, so
+        # uploading from apps/server makes Nixpacks look for a nested
+        # apps/server that is not in the archive.
+        # RAILWAY_TOKEN must be a project token. Do not also set RAILWAY_PROJECT_ID.
         run: railway up --ci --service codraft
-        working-directory: apps/server
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}

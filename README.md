@@ -101,7 +101,7 @@ This is the part that is more than a chat UI with an LLM bolted on.
 ```
 
 - **`apps/web`** — pages, Google auth, room/section CRUD, export, history. Deployed to Vercel (no `vercel.json` in repo).
-- **`apps/server`** — Socket.io presence + chat, in-memory `Y.Doc`s, Claude chat/fill/extract, debounced Yjs → Postgres. Deployed to Railway (`apps/server/railway.json`). GitHub Actions deploys on push to `main` when server/shared change (`RAILWAY_TOKEN` and `RAILWAY_PROJECT_ID` repo secrets). CORS is `origin: true` (any origin); `FRONTEND_URL` is unused.
+- **`apps/server`** — Socket.io presence + chat, in-memory `Y.Doc`s, Claude chat/fill/extract, debounced Yjs → Postgres. Deployed to Railway (`apps/server/railway.json`). GitHub Actions deploys on push to `main` when server/shared change. The `RAILWAY_TOKEN` repo secret must be a project token from that Railway project's settings, not an account token. CORS is `origin: true` (any origin); `FRONTEND_URL` is unused.
 - **`packages/shared`** — types only.
 
 Production URLs: set `NEXTAUTH_URL` / `NEXT_PUBLIC_APP_URL` to the Vercel origin, and `NEXT_PUBLIC_WS_URL` / `WS_SERVER_URL` to the Railway origin. `NEXT_PUBLIC_*` is baked in at build time — change it, then redeploy.
