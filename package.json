@@ -10,9 +10,11 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:server": "npm run dev --workspace=apps/server",
     "build:web": "npm run build --workspace=apps/web",
-    "build:server": "npm run build --workspace=apps/server"
+    "build:server": "npm run build --workspace=apps/server",
+    "test": "npm run test --workspace=@codraft/web && npm run test --workspace=@codraft/server"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "vitest": "^5.1.0"
   }
 }
